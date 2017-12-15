@@ -16,14 +16,6 @@ import org.slf4j.LoggerFactory
  * @since  27.10.17
  */
 
-enum class TokenType {saml, simple}
-data class TokenConfig(
-    val tokenType: TokenType,
-    val rolesAttributeName: String,
-    val useridAttributeName : String,
-    val tenantAttributeName : String,
-    val tokenName : String
-)
 
 private val logger = LoggerFactory.getLogger("saml-config") as Logger
 
