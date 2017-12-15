@@ -1,0 +1,83 @@
+buildscript {
+    ext {
+        kotlin_version = '1.2.10'
+        spekVersion = "1.1.5"
+        joobyVersion = "1.2.3"
+        junit_version = "5.0.2"
+    }
+
+    def credentialStorageScript = new File(System.properties['user.home'], '.ti8m-forge/credentials-storage.gradle')
+    assert credentialStorageScript.exists(): "Please, apply the credential-storage.gradle file!"
+    apply from: credentialStorageScript.absolutePath
+
+    repositories {
+        mavenCentral()
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "io.spring.gradle:dependency-management-plugin:1.0.3.RELEASE"
+        classpath "com.github.jengelman.gradle.plugins:shadow:1.2.4"
+    }
+}
+
+apply plugin: "io.spring.dependency-management"
+apply plugin: "com.github.johnrengelman.shadow"
+
+group 'ch.ti8m.channelsuite'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'kotlin'
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven {
+        credentials {
+            username getRepoUsername("nexus.ti8m.ch")
+            password getRepoPassword("nexus.ti8m.ch")
+        }
+        url 'https://nexus.ti8m.ch/content/repositories/channelbank-release/'
+    }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.jooby:jooby-bom:$joobyVersion"
+    }
+}
+
+dependencies {
+    def withoutCruft = {
+        exclude group: 'org.springframework', module: '*'
+        exclude group: 'org.bouncycastle', module: '*'
+        exclude group: 'org.apache.velocity', module: '*'
+    }
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+    compile 'io.github.config4k:config4k:0.3.2'
+    compile "ch.ti8m.channelsuite.serviceregistry:eureka-client-core:1.0.0-20171211100323-d55c3ec"
+    compile 'ch.ti8m.channelsuite.security:security-api:4.0.0-20171027123447-ee20432', withoutCruft
+    compile 'ch.ti8m.channelsuite.security:saml-based-token:4.0.0-20171027123447-ee20432', withoutCruft
+
+    compile "org.jooby:jooby-lang-kotlin"
+    compile "org.jooby:jooby-netty"
+
+    testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
+    testCompile("org.junit.jupiter:junit-jupiter-api:$junit_version")
+    testRuntime("org.junit.jupiter:junit-jupiter-engine:$junit_version")
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+
+task getDeps(type: Copy) {
+    from sourceSets.main.runtimeClasspath
+    into 'libraries/'
+}
