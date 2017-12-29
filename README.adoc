@@ -1,0 +1,7 @@
+= Template for light-weight services
+
+
+== open tasks
+
+* optimise netty setup
+* execute tests on build

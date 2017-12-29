@@ -1,73 +1,146 @@
+
 buildscript {
     ext {
         kotlin_version = '1.2.10'
         spekVersion = "1.1.5"
         joobyVersion = "1.2.3"
         junit_version = "5.0.2"
+        jooqVersion = "3.10.2"
+        h2Version = "1.4.192"
+        dokka_version = "0.9.14"
     }
-
-    def credentialStorageScript = new File(System.properties['user.home'], '.ti8m-forge/credentials-storage.gradle')
-    assert credentialStorageScript.exists(): "Please, apply the credential-storage.gradle file!"
-    apply from: credentialStorageScript.absolutePath
 
     repositories {
         mavenCentral()
+        jcenter()
         maven {
             url "https://plugins.gradle.org/m2/"
         }
     }
     dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "io.spring.gradle:dependency-management-plugin:1.0.3.RELEASE"
-        classpath "com.github.jengelman.gradle.plugins:shadow:1.2.4"
+        classpath "org.liquibase:liquibase-groovy-dsl:1.2.2"
+        classpath 'com.h2database:h2:1.4.192'
+        classpath "org.jooby:jooby-gradle-plugin:$joobyVersion"
+        classpath "org.jetbrains.dokka:dokka-gradle-plugin:${dokka_version}"
     }
 }
 
-apply plugin: "io.spring.dependency-management"
-apply plugin: "com.github.johnrengelman.shadow"
+plugins {
+    id "org.jetbrains.kotlin.jvm" version "1.2.10"
+    id 'org.liquibase.gradle' version '1.2.4'
+    id 'nu.studer.jooq' version '2.0.9'
+    id "com.github.johnrengelman.shadow" version "2.0.2"
+    id "io.spring.dependency-management" version "1.0.4.RELEASE" // support BOMs and exclusions
+}
+
+apply plugin: 'liquibase'
+
+apply plugin: "jooby"
+
+allprojects {
+    apply plugin: 'kotlin'
+    apply plugin: 'org.jetbrains.dokka'
+
+    repositories {
+        mavenCentral()
+        jcenter()
+        maven {
+            credentials {
+                username user
+                password password
+            }
+            url 'https://nexus.ti8m.ch/content/repositories/channelbank-release/'
+        }
+    }
+    dependencies {
+        testCompile("org.junit.jupiter:junit-jupiter-api:$junit_version")
+        testRuntime("org.junit.jupiter:junit-jupiter-engine:$junit_version")
+
+        compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    }
+    dokka {
+        includes = ['Module.md']
+        outputFormat = 'html'
+        outputDirectory = "$buildDir/javadoc"
+    }
+}
+
+subprojects {
+    group = 'ch.ti8m.channelsuite.libs'
+    version = '1.0'
+}
+
+project(':libs:log') {
+    dependencies {
+        compile 'org.slf4j:slf4j-api:1.7.25'
+    }
+}
+
+project(':libs:security'){
+    dependencies {
+        def withoutCruft = {
+            exclude group: 'org.springframework', module: '*'
+            exclude group: 'org.bouncycastle', module: '*'
+            exclude group: 'org.apache.velocity', module: '*'
+        }
+        compile 'ch.ti8m.channelsuite.security:security-api:4.0.0-20171027123447-ee20432', withoutCruft
+        compile 'ch.ti8m.channelsuite.security:saml-based-token:4.0.0-20171027123447-ee20432', withoutCruft
+        compile project(':libs:log')
+    }
+}
+
+project(':libs:eurekaclient') {
+    dependencies {
+        compile project(':libs:log')
+        compile "ch.ti8m.channelsuite.serviceregistry:eureka-client-core:1.0.0-20171211100323-d55c3ec"
+    }
+}
+
+project(':libs:kooby-jooq') {
+    dependencyManagement {
+        imports {
+            mavenBom "org.jooby:jooby-bom:$joobyVersion"
+        }
+    }
+    dependencies {
+        compile 'io.github.config4k:config4k:0.3.2'
+        compile 'com.zaxxer:HikariCP:2.7.4'
+        compile 'org.postgresql:postgresql:9.4.1212'
+        compile 'org.liquibase:liquibase-core:3.5.3'
+        compile 'com.mattbertolini:liquibase-slf4j:2.0.0'
+        compile "org.jooby:jooby-lang-kotlin:$joobyVersion"
+        compile "org.jooby:jooby-metrics:$joobyVersion"
+
+        compileOnly "com.h2database:h2:$h2Version"
+        compile "org.jooq:jooq:$jooqVersion"
+
+        compile project(':libs:security')
+        compile project(':libs:eurekaclient')
+    }
+}
+
 
 group 'ch.ti8m.channelsuite'
 version '1.0-SNAPSHOT'
 
-apply plugin: 'kotlin'
-
-repositories {
-    mavenCentral()
-    jcenter()
-    maven {
-        credentials {
-            username getRepoUsername("nexus.ti8m.ch")
-            password getRepoPassword("nexus.ti8m.ch")
-        }
-        url 'https://nexus.ti8m.ch/content/repositories/channelbank-release/'
-    }
-}
-
-dependencyManagement {
-    imports {
-        mavenBom "org.jooby:jooby-bom:$joobyVersion"
-    }
-}
-
 dependencies {
-    def withoutCruft = {
-        exclude group: 'org.springframework', module: '*'
-        exclude group: 'org.bouncycastle', module: '*'
-        exclude group: 'org.apache.velocity', module: '*'
-    }
+
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
-    compile 'io.github.config4k:config4k:0.3.2'
-    compile "ch.ti8m.channelsuite.serviceregistry:eureka-client-core:1.0.0-20171211100323-d55c3ec"
-    compile 'ch.ti8m.channelsuite.security:security-api:4.0.0-20171027123447-ee20432', withoutCruft
-    compile 'ch.ti8m.channelsuite.security:saml-based-token:4.0.0-20171027123447-ee20432', withoutCruft
-
+    compile project(':libs:log')
+    compile project(':libs:kooby-jooq')
     compile "org.jooby:jooby-lang-kotlin"
     compile "org.jooby:jooby-netty"
+    compile "org.jooby:jooby-jackson"
+    compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.0"
+    //compile "org.jooby:jooby-apitool"
 
-    testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
-    testCompile("org.junit.jupiter:junit-jupiter-api:$junit_version")
-    testRuntime("org.junit.jupiter:junit-jupiter-engine:$junit_version")
+    jooqRuntime "com.h2database:h2:$h2Version"
+
+    testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
+
+    testCompile 'io.rest-assured:rest-assured:3.0.6'
+    testCompile 'org.hamcrest:hamcrest-core:1.3'
 }
 
 compileKotlin {
@@ -81,3 +154,64 @@ task getDeps(type: Copy) {
     from sourceSets.main.runtimeClasspath
     into 'libraries/'
 }
+
+joobyRun {
+    mainClassName = 'ch.ti8m.channelsuite.xservice.ServiceMain'
+    compiler = 'on'
+    includes = ['**/*.class', '**/*.conf', '**/*.properties']
+    excludes = []
+    logLevel = 'info'
+
+}
+
+liquibase {
+    activities {
+        createH2DBschema {
+            changeLogFile "src/main/resources/db/changelog/initial.xml"
+            url "jdbc:h2:file:${buildDir}/h2db;DATABASE_TO_UPPER=false;FILE_LOCK=NO"
+            username 'sa'
+            password ''
+        }
+    }
+}
+
+jooq {
+    records(sourceSets.main) {
+        jdbc {
+            driver = 'org.h2.Driver'
+            url = "jdbc:h2:file:${buildDir}/h2db"
+            user = 'sa'
+        }
+        generator {
+            name = 'org.jooq.util.DefaultGenerator'
+            strategy {
+                name = 'org.jooq.util.DefaultGeneratorStrategy'
+            }
+            database {
+                inputSchema = 'PUBLIC'
+                includes = '.*'
+                recordVersionFields = '(version|VERSION)'
+            }
+            generate {
+                relations = true
+                deprecated = false
+                records = true
+                immutablePojos = true
+                fluentSetters = false
+            }
+            target {
+                packageName = 'ch.ti8m.channelsuite.xservice.jooq'
+            }
+        }
+    }
+}
+
+task('delete_h2_file')  {
+   doLast { delete "${buildDir}/h2db.mv.db" }
+   doLast { delete "${buildDir}/h2db.trace.db" }
+}
+//necessary because of liquibase trying to create the existing changelog table twice:
+update.dependsOn delete_h2_file
+
+generateRecordsJooqSchemaSource.dependsOn update
+compileKotlin.dependsOn generateRecordsJooqSchemaSource

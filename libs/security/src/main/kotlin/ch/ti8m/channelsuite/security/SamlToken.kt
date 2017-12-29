@@ -1,27 +1,26 @@
 package ch.ti8m.channelsuite.security
 
+import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.security.api.SecurityContextDistributor
 import ch.ti8m.channelsuite.security.api.SecurityContextTemplate
 import ch.ti8m.channelsuite.security.api.SecurityToken
 import ch.ti8m.channelsuite.security.api.UserInfo
 import ch.ti8m.channelsuite.security.saml.SamlConfiguration
 import ch.ti8m.channelsuite.security.saml.SamlTokenMarshaller
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 
 
 /**
+ * Wires up and configures support for SAML tokens as means of transporting user identity
  *
  * @author marcus
  * @since  27.10.17
  */
 
-
-private val logger = LoggerFactory.getLogger("saml-config") as Logger
-
+private val logger = object : LogFactory {}.packageLogger()
 
 private val factory = SamlConfiguration()
 
+//TODO support token validation here
 @Suppress("DEPRECATION")
 private val marshaller = SamlTokenMarshaller()
 
@@ -33,7 +32,7 @@ private fun converter(config: TokenConfig)  =
 
 
 
-fun samlSecurityContextTemplate(config:TokenConfig) =
+fun samlSecurityContextTemplate(config: TokenConfig) =
         SecurityContextTemplate(marshaller, converter(config),
             listOf( // just because we can ...
                     object : SecurityContextDistributor {

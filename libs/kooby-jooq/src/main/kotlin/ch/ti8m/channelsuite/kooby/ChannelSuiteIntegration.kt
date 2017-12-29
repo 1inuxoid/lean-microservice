@@ -2,43 +2,48 @@ package ch.ti8m.channelsuite.kooby
 
 import ch.ti8m.channelsuite.eurekaclient.EurekaConfig
 import ch.ti8m.channelsuite.eurekaclient.EurekaSchedulerWrapper
+import ch.ti8m.channelsuite.log.LogFactory
+import ch.ti8m.channelsuite.security.TokenConfig
 import ch.ti8m.channelsuite.security.api.RequestInfoImpl
 import ch.ti8m.channelsuite.security.api.UserInfo
 import ch.ti8m.channelsuite.security.securityTemplate
-import ch.ti8m.channelsuite.stdconfig.AppConfig
-import ch.ti8m.channelsuite.xservice.logger
 import com.google.inject.Binder
 import com.typesafe.config.Config
 import io.github.config4k.extract
-import org.jooby.*
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import org.jooby.Env
+import org.jooby.Jooby
 import kotlin.concurrent.thread
 
+/**
+ * Defines the configuration for accessing a relational database.
+ */
+data class DatabaseConfig(
+        val jdbcUrl: String,
+        val username: String,
+        val password: String,
+        val checkStatement: String
+)
 
-interface Package
+/**
+ * A Jooby modules setting up a channelsuite security-context for each request to an
+ * application resource.
+ */
+class ChannelsuiteSecurity : Jooby.Module {
+    private val log = object : LogFactory {}.classLogger()
 
-val log = object : Package {
-    val logger: Logger = LoggerFactory.getLogger(this.javaClass.`package`.name)
-}.logger
-
-
-class ChannelsuiteIntegration : Jooby.Module {
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
 
-        val appConfig = conf!!.extract<AppConfig>("channelsuite")
-
-        setupEureka(appConfig.eurekaConfig)
+        val tokenConfig = conf!!.extract<TokenConfig>("channelsuite.tokenConfig")
 
         env!!.router().use("*", "*") { req, rsp, chain ->
             log.info("filtering request $req")
-            val token = req.header(appConfig.tokenConfig.tokenName)
-            val securityTemplate = securityTemplate(appConfig.tokenConfig)
+            val token = req.header(tokenConfig.tokenName)
+            val securityTemplate = securityTemplate(tokenConfig)
             if (token.isSet)
                 securityTemplate.setupSecurityContext(token.value())
             else
                 securityTemplate.setupSecurityContext(
-                        appConfig.name,
+                        conf.getString("application.name"),
                         UserInfo.ANONYMOUS,
                         RequestInfoImpl.EMPTY,
                         null)
@@ -46,10 +51,19 @@ class ChannelsuiteIntegration : Jooby.Module {
             chain.next(req, rsp)
             securityTemplate.tearDownSecurityContext()
         }
+        log.info("channelsuite security integration set up successfully.")
     }
+}
 
+/**
+ * A Jooby module tying start and stop of the Eureka client to the lifecycle of the Jooby app.
+ */
+class EurekaClient : Jooby.Module {
+    private val logger = object : LogFactory{}.classLogger()
 
-    private fun setupEureka(config: EurekaConfig) {
+    override fun configure(env: Env?, conf: Config?, binder: Binder?) {
+        val config = conf!!.extract<EurekaConfig>("channelsuite.eurekaConfig")
+
         val eurekaScheduler = EurekaSchedulerWrapper(config)
 
         thread(true) { eurekaScheduler.start() }
@@ -60,5 +74,4 @@ class ChannelsuiteIntegration : Jooby.Module {
             }
         })
     }
-
 }
