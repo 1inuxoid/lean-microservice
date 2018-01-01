@@ -1,7 +1,51 @@
 = Template for light-weight services
 
+== Goals
+
+Each design decision or choice of library should help in attaining on of the following goals:
+
+minimal startup time :: Deployment and development cycles need to be short. Therefore, expensive tasks must not be performed unnecessarily
+
+safety :: Wherever possible, the developer should be saved from stupid/accidental mistakes
+
+comprehensibility :: code must be explicit about when and why it will be executed. Non-trivial behaviour needs to be programmed/explicitly declared rather than happening "by convention". Boilerplate code obstructs readability.
+
+avoidance of unnecessary code and dependencies :: each piece of byte-code in the deliverable should be potentially executed
+
+== Design choices
+
+=== Principal libraries
+
+Kotlin :: was chosen because it enhances safety (nullability as part of the type system, immutable collections) and comprehensibility (due to its terseness and expressiveness)
+
+jOOQ :: reduces startup time as there is no initialisation of entity mappings or compilation of JQL queries.
+Much of what these achieve is done at build-time by the DSL/record-type generator.
+Furthermore, the reduction in accidental complexity attained by not translating innocent-looking method calls in an object graph into SQL queries using non-trivial mapping annotations, adds to programming safety.
+
+jooby :: was preferred to spark-java because it starts from the same simple http server model, that is definition of routes in terms of lambdas, but offers some additional features at very modest cost:
+    * Useful configuration using config4j/k and e model for different environments (DEV, PROD, ...)
+    * Modular dependency injection via Guice
+    * ready-made modules for metrics/health (taken from dropwizard)
+    * API documentation (swagger raml, generated from the source code)
+
+=== Environments
+
+Each module must support the following environments (what spring calls "profiles"):
+
+dev :: the default for running the module interactively with an embedded DB from the IDE while developing.
+f
+junit :: for running automated integration tests (JUnit test which start the whole module as an http service)
+
+cdk :: for running the module in a cdk-managed environment (out-of-process database, integration with service registry
+
+prod :: for production-like environments which should also include integration test stages, if possible, to make testing more realistic/reliable.
+
+A module can, if desirable, add to these environments, most likely by defining some _demo_ or _int_ specific settings.
+
+
+== Description of features
 
 == open tasks
 
 * optimise netty setup
-* execute tests on build
+* make API documentation (swagger/raml) work

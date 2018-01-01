@@ -15,16 +15,6 @@ import org.jooby.Jooby
 import kotlin.concurrent.thread
 
 /**
- * Defines the configuration for accessing a relational database.
- */
-data class DatabaseConfig(
-        val jdbcUrl: String,
-        val username: String,
-        val password: String,
-        val checkStatement: String
-)
-
-/**
  * A Jooby modules setting up a channelsuite security-context for each request to an
  * application resource.
  */

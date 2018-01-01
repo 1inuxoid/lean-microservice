@@ -30,7 +30,7 @@ class ServiceMain : Kooby({
 
     use(ChannelsuitePersistence())
     use(LiquibaseIntegration())
-    use( Jackson().doWith { it.registerModule(KotlinModule()) } )
+    use(Jackson().doWith { it.registerModule(KotlinModule()) } )
 
     on("junit"){_->}.orElse{ _->
         use(EurekaClient())

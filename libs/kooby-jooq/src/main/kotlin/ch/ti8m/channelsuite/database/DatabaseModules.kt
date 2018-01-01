@@ -1,7 +1,6 @@
 package ch.ti8m.channelsuite.database
 
 import ch.ti8m.channelsuite.log.LogFactory
-import ch.ti8m.channelsuite.kooby.DatabaseConfig
 import com.codahale.metrics.health.HealthCheck
 import com.google.inject.Binder
 import com.google.inject.Inject
@@ -29,13 +28,28 @@ import javax.sql.DataSource
  * @author marcus
  * @since  16.12.17
  */
-val dbConfigPath = "channelsuite.databaseConfig"
 val logger = object : LogFactory{}.packageLogger()
+
+/**
+ * Defines the configuration for accessing a relational database.
+ */
+val dbConfigPath = "channelsuite.databaseConfig"
+data class DatabaseConfig(
+        val jdbcUrl: String,
+        val username: String,
+        val password: String,
+        val checkStatement: String
+)
 
 private fun databaseConfig(conf: Config?): DatabaseConfig {
     return conf!!.extract(dbConfigPath)
 }
 
+/**
+ * A Jooby module combining the Hikari connection pool and the Jooq DSL into a database
+ * access layer.
+ *
+ */
 class ChannelsuitePersistence : Jooby.Module {
 
     private fun dialect(jdbcUrl:String): SQLDialect = when {
@@ -69,6 +83,10 @@ class ChannelsuitePersistence : Jooby.Module {
     }
 }
 
+/**
+ * A health check for the database connection. The statement to be used for the checks can be
+ * customised through the [DatabaseConfig.checkStatement] property.
+ */
 class PersistenceHealthCheck
     @Inject constructor(private val ds : DataSource, private val dbConfig : DatabaseConfig) : HealthCheck() {
     override fun check(): Result {
@@ -81,6 +99,10 @@ class PersistenceHealthCheck
     }
 }
 
+/**
+ * A Jooby module exposing an embedded H2 instance through a web-console. Meant for local,
+ * exploratory testing by developers.
+ */
 class H2EmbeddedServer : Jooby.Module {
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
         val port = "9092"
@@ -98,6 +120,10 @@ class H2EmbeddedServer : Jooby.Module {
     }
 }
 
+/**
+ * A Jooby module running liquibase-update. The default changelog `db/changelog/initial.xml` can
+ * be overridden by passing in the changeLogFile property via the constructor.
+ */
 class LiquibaseIntegration(private val changeLogFile: String = "db/changelog/initial.xml") : Jooby.Module {
 
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
@@ -111,6 +137,9 @@ class LiquibaseIntegration(private val changeLogFile: String = "db/changelog/ini
     }
 }
 
+/**
+ * Listens to starts and ends of database transactions and simply logs them.
+ */
 object TransactionLogger : DefaultTransactionListener() {
     private val logger = object : LogFactory {}.classLogger()
     override fun beginStart(ctx: TransactionContext?) {
