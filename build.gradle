@@ -137,13 +137,14 @@ dependencies {
     compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.0"
     //compile "org.jooby:jooby-apitool"
 
+    runtime "com.h2database:h2:$h2Version"
+
     jooqRuntime "com.h2database:h2:$h2Version"
 
     testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
 
     testCompile 'io.rest-assured:rest-assured:3.0.6'
     testCompile 'org.hamcrest:hamcrest-core:1.3'
-    testRuntime "com.h2database:h2:$h2Version"
 }
 
 compileKotlin {

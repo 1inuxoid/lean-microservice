@@ -2,6 +2,8 @@
 
 == Goals
 
+=== Non-functional
+
 Each design decision or choice of library should help in attaining on of the following goals:
 
 minimal startup time :: Deployment and development cycles need to be short. Therefore, expensive tasks must not be performed unnecessarily
@@ -11,6 +13,13 @@ safety :: Wherever possible, the developer should be saved from stupid/accidenta
 comprehensibility :: code must be explicit about when and why it will be executed. Non-trivial behaviour needs to be programmed/explicitly declared rather than happening "by convention". Boilerplate code obstructs readability.
 
 avoidance of unnecessary code and dependencies :: each piece of byte-code in the deliverable should be potentially executed
+
+=== Functional
+
+* convenient RDBMS integration (access and schema evolution)
+* integration with the channel suite eureka service registry
+* support channel-suite token security & logging
+* Support metrics/health endpoints
 
 == Design choices
 
@@ -49,3 +58,4 @@ A module can, if desirable, add to these environments, most likely by defining s
 
 * optimise netty setup
 * make API documentation (swagger/raml) work
+* tune metrics/health endpoints
