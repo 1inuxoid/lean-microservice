@@ -17,13 +17,16 @@ import com.codahale.metrics.jvm.ThreadStatesGaugeSet
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.jooby.*
 import org.jooby.Jooby.run
+import org.jooby.apitool.ApiTool
 import org.jooby.json.Jackson
 import org.jooby.metrics.Metrics
 import org.jooq.DSLContext
 
 
 private val logger = object: LogFactory {}.packageLogger()
-
+/**
+ * A request to create a user
+ */
 data class UserCreationRequest(val username:String, val firstname:String, val lastname:String)
 
 class ServiceMain : Kooby({
@@ -39,7 +42,7 @@ class ServiceMain : Kooby({
 
     on("dev") { _ ->
         use(H2EmbeddedServer())
-        //use(ApiTool().swagger("/apidocs").raml("/raml"))
+        use(ApiTool().swagger("/apidocs").raml("/raml"))
     }
 
     on(EnvMatcher.from("(dev|junit)"), Runnable{})
@@ -61,7 +64,9 @@ class ServiceMain : Kooby({
      */
     path("/users") {
 
-        //make users api transaction-per-request
+        /**
+         * make users api transaction-per-request
+         */
         use("*", "*") { req, rsp, chain ->
             require(DSLContext::class.java).transaction { _ -> chain.next(req, rsp)  }
         }
@@ -74,37 +79,41 @@ class ServiceMain : Kooby({
             dslContext.select().from(Tables.PORTAL_USER).map { it.into(PortalUser::class.java) }
         }
 
-        post { req ->
-            val user = req.body(UserCreationRequest::class.java)
+        /**
+         * adds a new user to the database
+         *
+         * @return the newly created user with status ```201``` created.
+         */
+        post {
+            val user = body<UserCreationRequest>()
             val dslContext = require(DSLContext::class)
             val i = dslContext.newRecord(Tables.PORTAL_USER, user).store()
-            Results.with(i, Status.CREATED)
-                    .type(MediaType.json)
-        }.consumes(MediaType.json)
+            Results.with(i,Status.CREATED)
+        }
 
-        get("{id:\\d+}") {
-            r ->
+        /**
+         * gets a user by id
+         *
+         * @param id the user's technical id
+         */
+        get(":id") {
             val dslContext = require(DSLContext::class)
             dslContext.select().from(Tables.PORTAL_USER).where(
-                    Tables.PORTAL_USER.ID.eq(r.param("id").intValue()))
+                    Tables.PORTAL_USER.ID.eq(param<Int>("id")))
                     .fetchOne().into(PortalUser::class.java)
 
         }
     }
 
-}){
-    companion object {
-        /**
-         * Run application:
-         */
-        @JvmStatic fun main(args: Array<String>) {
-            run(::ServiceMain, args)
+})
+/**
+ * Run application:
+ */
+fun main(args: Array<String>) {
+    run(::ServiceMain, args)
 
-            logger.info("leaving main ...")
-        }
-    }
+    logger.info("leaving main ...")
 }
-
 
 
 

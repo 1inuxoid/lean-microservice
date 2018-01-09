@@ -135,7 +135,7 @@ dependencies {
     compile "org.jooby:jooby-netty"
     compile "org.jooby:jooby-jackson"
     compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.0"
-    //compile "org.jooby:jooby-apitool"
+    compile "org.jooby:jooby-apitool"
 
     runtime "com.h2database:h2:$h2Version"
 
