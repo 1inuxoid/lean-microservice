@@ -42,7 +42,7 @@ jooby :: was preferred to spark-java because it starts from the same simple http
 Each module must support the following environments (what spring calls "profiles"):
 
 dev :: the default for running the module interactively with an embedded DB from the IDE while developing.
-f
+
 junit :: for running automated integration tests (JUnit test which start the whole module as an http service)
 
 cdk :: for running the module in a cdk-managed environment (out-of-process database, integration with service registry
@@ -59,3 +59,4 @@ A module can, if desirable, add to these environments, most likely by defining s
 * optimise netty setup
 * make API documentation (swagger/raml) work
 * tune metrics/health endpoints
+* add support for jwt tokens

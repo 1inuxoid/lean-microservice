@@ -6,7 +6,7 @@ buildscript {
         joobyVersion = "1.2.3"
         junit_version = "5.0.2"
         jooqVersion = "3.10.2"
-        h2Version = "1.4.192"
+        h2Version = "1.4.196"
         dokka_version = "0.9.14"
     }
 
