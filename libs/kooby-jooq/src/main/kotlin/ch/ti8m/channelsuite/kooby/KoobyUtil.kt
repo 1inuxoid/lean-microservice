@@ -4,6 +4,7 @@ import java.util.function.Predicate
 
 
 /**
+ * Allows running code depending whether the environment matches some regular expression-
  *
  * @author marcus
  * @since  29.12.17

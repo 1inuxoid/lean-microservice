@@ -121,10 +121,11 @@ class H2EmbeddedServer : Jooby.Module {
 }
 
 /**
- * A Jooby module running liquibase-update. The default changelog `db/changelog/initial.xml` can
+ * A Jooby module running liquibase-update. The default changelog `db/changelog/master.xml` can
  * be overridden by passing in the changeLogFile property via the constructor.
  */
-class LiquibaseIntegration(private val changeLogFile: String = "db/changelog/initial.xml") : Jooby.Module {
+//TODO inital -> master
+class LiquibaseIntegration(private val changeLogFile: String = "db/changelog/master.xml") : Jooby.Module {
 
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
         if (conf!!.getBoolean(dbConfigPath + ".updateSchema")) {

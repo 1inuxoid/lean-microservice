@@ -8,6 +8,7 @@ buildscript {
         jooqVersion = "3.10.2"
         h2Version = "1.4.196"
         dokka_version = "0.9.14"
+        security_version = "4.0.0-20171027123447-ee20432"
     }
 
     repositories {
@@ -49,7 +50,7 @@ allprojects {
         maven {
             credentials {
                 username user
-                password password
+                password pwd
             }
             url 'https://nexus.ti8m.ch/content/repositories/channelbank-release/'
         }
@@ -85,8 +86,8 @@ project(':libs:security'){
             exclude group: 'org.bouncycastle', module: '*'
             exclude group: 'org.apache.velocity', module: '*'
         }
-        compile 'ch.ti8m.channelsuite.security:security-api:4.0.0-20171027123447-ee20432', withoutCruft
-        compile 'ch.ti8m.channelsuite.security:saml-based-token:4.0.0-20171027123447-ee20432', withoutCruft
+        compile "ch.ti8m.channelsuite.security:security-api:$security_version", withoutCruft
+        compile "ch.ti8m.channelsuite.security:saml-based-token:$security_version", withoutCruft
         compile project(':libs:log')
     }
 }
@@ -160,7 +161,7 @@ task getDeps(type: Copy) {
 }
 
 joobyRun {
-    mainClassName = 'ch.ti8m.channelsuite.xservice.ServiceMain'
+    mainClassName = 'ch.ti8m.channelsuite.xservice.ServiceMainKt'
     compiler = 'on'
     includes = ['**/*.class', '**/*.conf', '**/*.properties']
     excludes = []
@@ -171,7 +172,7 @@ joobyRun {
 liquibase {
     activities {
         createH2DBschema {
-            changeLogFile "src/main/resources/db/changelog/initial.xml"
+            changeLogFile "src/main/resources/db/changelog/master.xml"
             url "jdbc:h2:file:${buildDir}/h2db;DATABASE_TO_UPPER=false;FILE_LOCK=NO"
             username 'sa'
             password ''
