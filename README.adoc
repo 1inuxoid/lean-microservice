@@ -52,6 +52,15 @@ prod :: for production-like environments which should also include integration t
 A module can, if desirable, add to these environments, most likely by defining some _demo_ or _int_ specific settings.
 
 
+=== Run in locally
+
+To run it locally you have to make sure to create a gradle.properties inside %USERHOME%/.gradle/ with the following adapted entries:
+
+```
+user=[yournexususer]
+password=[yournexuspassword]
+```
+
 == Description of features
 
 == open tasks
