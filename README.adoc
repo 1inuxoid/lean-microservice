@@ -58,7 +58,7 @@ To run it locally you have to make sure to create a gradle.properties inside %US
 
 ```
 user=[yournexususer]
-password=[yournexuspassword]
+pwd=[yournexuspassword]
 ```
 
 == Description of features
