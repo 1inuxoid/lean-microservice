@@ -3,9 +3,8 @@ package ch.ti8m.channelsuite.security
 import ch.ti8m.channelsuite.security.api.*
 
 /*
- *  TODO this is probably not very useful it's more of a placeholder for jwt support really.
- * a simplistic implementation of security token support. Use
- * SimpleSecurityContextTemplate in your filter to enable it.
+ * A simplistic implementation of security token support useful for integration testing using Junit.
+ * Use SimpleSecurityContextTemplate in your filter to enable it.
  *
  */
 
@@ -21,7 +20,7 @@ object SimpleTokenMarshaller : TokenMarshaller {
 
     override fun unmarshal(tokenString: String?): SecurityToken {
         val format = Regex("""(.*)\|\[(.*)]""")
-        val match = format.matchEntire(tokenString!!) ?: throw IllegalArgumentException("Illegal token $tokenString")
+        val match = format.matchEntire(tokenString!!) ?: throw IllegalArgumentException("Illegal token $tokenString does not match '$format'")
 
         return SimpleToken(
                 match.groupValues[1],

@@ -35,9 +35,11 @@ class ServiceMain : Kooby({
     use(LiquibaseIntegration())
     use(Jackson().doWith { it.registerModule(KotlinModule()) } )
 
+    val security = ChannelsuiteSecurity()
+    use(security)
+
     on("junit"){_->}.orElse{ _->
         use(EurekaClient())
-        use(ChannelsuiteSecurity())
     }
 
     on("dev") { _ ->
@@ -85,10 +87,12 @@ class ServiceMain : Kooby({
          * @return the newly created user with status ```201``` created.
          */
         post {
-            val user = body<UserCreationRequest>()
-            val dslContext = require(DSLContext::class)
-            val i = dslContext.newRecord(Tables.PORTAL_USER, user).store()
-            Results.with(i,Status.CREATED)
+            security.doIfPermitted("xservice:user:create") {
+                val user = body<UserCreationRequest>()
+                val dslContext = require(DSLContext::class)
+                val i = dslContext.newRecord(Tables.PORTAL_USER, user).store()
+                Results.with(i,Status.CREATED)
+            }
         }
 
         /**
@@ -101,11 +105,11 @@ class ServiceMain : Kooby({
             dslContext.select().from(Tables.PORTAL_USER).where(
                     Tables.PORTAL_USER.ID.eq(param<Int>("id")))
                     .fetchOne().into(PortalUser::class.java)
-
         }
     }
 
 })
+
 /**
  * Run application:
  */

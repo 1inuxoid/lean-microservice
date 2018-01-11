@@ -4,6 +4,7 @@ import ch.ti8m.channelsuite.xservice.ServiceMain
 import ch.ti8m.channelsuite.xservice.UserCreationRequest
 import io.restassured.RestAssured.`when`
 import io.restassured.RestAssured.given
+import io.restassured.http.Header
 import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -21,6 +22,9 @@ class ApiTest  {
 
     val user = UserCreationRequest("hugo", "Hugo", "Hurtig")
 
+    val authHeaderForAdmin = Header("AL_IDENTITY", "admin|[everything,admin]")
+    val authHeaderForUnauthorisedUser = Header("AL_IDENTITY", "noob|[stuff]")
+
 
     @Test
     fun posting_users_works() {
@@ -32,9 +36,31 @@ class ApiTest  {
         posted_users_can_be_retrieved_by_id()
     }
 
+    @Test
+    fun posting_users_requires_permission_to_create_them() {
+        given()
+                .body(user).contentType("application/json")
+                .header(authHeaderForUnauthorisedUser)
+                .`when`()
+                .post("/users").
+                then()
+                .statusCode(403)
+    }
+
+    @Test
+    fun posting_anyomously_results_in_401() {
+        given()
+                .body(user).contentType("application/json")
+                .`when`()
+                .post("/users").
+                then()
+                .statusCode(401)
+    }
+
     private fun posting_a_user_returns_status_created() {
         given()
                 .body(user).contentType("application/json")
+                .header(authHeaderForAdmin)
                 .`when`()
                 .post("/users").
                 then()

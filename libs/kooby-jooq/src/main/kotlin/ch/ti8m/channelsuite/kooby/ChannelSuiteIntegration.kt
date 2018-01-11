@@ -4,45 +4,53 @@ import ch.ti8m.channelsuite.eurekaclient.EurekaConfig
 import ch.ti8m.channelsuite.eurekaclient.EurekaSchedulerWrapper
 import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.security.TokenConfig
-import ch.ti8m.channelsuite.security.api.RequestInfoImpl
-import ch.ti8m.channelsuite.security.api.UserInfo
+import ch.ti8m.channelsuite.security.api.RequestSecurityContext
+import ch.ti8m.channelsuite.security.hasCurrentUserPermission
 import ch.ti8m.channelsuite.security.securityTemplate
 import com.google.inject.Binder
 import com.typesafe.config.Config
 import io.github.config4k.extract
-import org.jooby.Env
-import org.jooby.Jooby
+import org.jooby.*
 import kotlin.concurrent.thread
 
 /**
  * A Jooby modules setting up a channelsuite security-context for each request to an
  * application resource.
+ * You may want to grab hold of this modules instance for convenient authorisation (permission-checkind)
+ * using [doIfPermitted]
  */
 class ChannelsuiteSecurity : Jooby.Module {
     private val log = object : LogFactory {}.classLogger()
 
+    private lateinit var mappings: Map<String, List<String>>
+
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
 
         val tokenConfig = conf!!.extract<TokenConfig>("channelsuite.tokenConfig")
+        mappings = conf.extract("channelsuite.permissions")
 
         env!!.router().use("*", "*") { req, rsp, chain ->
             log.info("filtering request $req")
             val token = req.header(tokenConfig.tokenName)
             val securityTemplate = securityTemplate(tokenConfig)
-            if (token.isSet)
-                securityTemplate.setupSecurityContext(token.value())
-            else
-                securityTemplate.setupSecurityContext(
-                        conf.getString("application.name"),
-                        UserInfo.ANONYMOUS,
-                        RequestInfoImpl.EMPTY,
-                        null)
 
-            chain.next(req, rsp)
-            securityTemplate.tearDownSecurityContext()
+            securityTemplate.performLoggedInWith(token.value("")) {
+                chain.next(req, rsp)
+            }
+
         }
         log.info("channelsuite security integration set up successfully.")
     }
+
+    fun doIfPermitted(permission: String, function: () -> Result): Any =
+            when {
+                RequestSecurityContext.getUserInfo().isAnonymous -> Results.with(Status.UNAUTHORIZED)
+                hasCurrentUserPermission(permission, mappings) -> function()
+                else -> {
+                    log.info("user {} is not permitted {}", RequestSecurityContext.getUserInfo(), permission)
+                    Results.with(Status.FORBIDDEN)
+                }
+            }
 }
 
 /**
