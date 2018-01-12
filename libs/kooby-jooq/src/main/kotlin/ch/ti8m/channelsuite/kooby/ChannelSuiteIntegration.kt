@@ -7,6 +7,8 @@ import ch.ti8m.channelsuite.security.TokenConfig
 import ch.ti8m.channelsuite.security.api.RequestSecurityContext
 import ch.ti8m.channelsuite.security.hasCurrentUserPermission
 import ch.ti8m.channelsuite.security.securityTemplate
+import ch.ti8m.channelsuite.security.tokenProducer
+import ch.ti8m.channelsuite.serviceregistry.client.api.ServiceRegistryClient
 import com.google.inject.Binder
 import com.typesafe.config.Config
 import io.github.config4k.extract
@@ -24,6 +26,9 @@ class ChannelsuiteSecurity : Jooby.Module {
 
     private lateinit var mappings: Map<String, List<String>>
 
+    private lateinit var tokenSource: () -> String
+    private lateinit var tokenName: String
+
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
 
         val tokenConfig = conf!!.extract<TokenConfig>("channelsuite.tokenConfig")
@@ -39,6 +44,8 @@ class ChannelsuiteSecurity : Jooby.Module {
             }
 
         }
+        tokenName = tokenConfig.tokenName
+        tokenSource = tokenProducer(tokenConfig)
         log.info("channelsuite security integration set up successfully.")
     }
 
@@ -51,6 +58,10 @@ class ChannelsuiteSecurity : Jooby.Module {
                     Results.with(Status.FORBIDDEN)
                 }
             }
+
+    data class TokenHeader(val name: String, val token: String)
+
+    fun tokenHeader() = TokenHeader(tokenName, tokenSource())
 }
 
 /**
@@ -71,5 +82,24 @@ class EurekaClient : Jooby.Module {
                 eurekaScheduler.stop()
             }
         })
+
+        binder!!.bind(ServiceRegistryClient::class.java).toInstance(eurekaScheduler.registryClient)
     }
 }
+
+/**
+ * looks up the URL for a service registered with the Eureka registry
+ *
+ * @return the URL for the service, without a trailing slash
+ */
+fun Registry.serviceUrl(serviceName: String): String {
+    val registry = require(ServiceRegistryClient::class.java)
+
+    val serviceInstance = registry.getNextServiceInstance(serviceName)
+    val uri = serviceInstance.uri.toString()
+    return uri +
+            if (!serviceInstance.isServiceContextDefined)
+                (if (!uri.endsWith("/")) "/" else "") +
+                        serviceName else ""
+}
+

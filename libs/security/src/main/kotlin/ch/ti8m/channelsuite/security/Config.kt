@@ -1,5 +1,6 @@
 package ch.ti8m.channelsuite.security
 
+import ch.ti8m.channelsuite.security.api.ContextTokenProvider
 import ch.ti8m.channelsuite.security.api.SecurityContextTemplate
 
 enum class TokenType {saml, simple}
@@ -17,3 +18,22 @@ fun securityTemplate(config: TokenConfig): SecurityContextTemplate =
         TokenType.saml -> samlSecurityContextTemplate(config)
         TokenType.simple -> SimpleSecurityContextTemplate
     }
+
+private fun tokenMarshaller(config: TokenConfig) =
+        when (config.tokenType) {
+            TokenType.saml -> marshaller
+            TokenType.simple -> SimpleTokenMarshaller
+        }
+
+private fun tokenConverter(config: TokenConfig) =
+        when (config.tokenType) {
+            TokenType.saml -> converter(config)
+            TokenType.simple -> SimpleTokenConverter
+        }
+
+fun tokenProducer(config: TokenConfig) =
+        {
+            tokenMarshaller(config).marshal(
+                    ContextTokenProvider(tokenConverter(config)).tokenForCurrentContext()
+            )
+        }

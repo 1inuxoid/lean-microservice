@@ -7,6 +7,7 @@ import ch.ti8m.channelsuite.database.PersistenceHealthCheck
 import ch.ti8m.channelsuite.kooby.ChannelsuiteSecurity
 import ch.ti8m.channelsuite.kooby.EnvMatcher
 import ch.ti8m.channelsuite.kooby.EurekaClient
+import ch.ti8m.channelsuite.kooby.serviceUrl
 import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.xservice.jooq.Tables
 import ch.ti8m.channelsuite.xservice.jooq.tables.pojos.PortalUser
@@ -15,6 +16,8 @@ import com.codahale.metrics.jvm.GarbageCollectorMetricSet
 import com.codahale.metrics.jvm.MemoryUsageGaugeSet
 import com.codahale.metrics.jvm.ThreadStatesGaugeSet
 import com.fasterxml.jackson.module.kotlin.KotlinModule
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.jooby.*
 import org.jooby.Jooby.run
 import org.jooby.apitool.ApiTool
@@ -30,6 +33,8 @@ private val logger = object: LogFactory {}.packageLogger()
 data class UserCreationRequest(val username:String, val firstname:String, val lastname:String)
 
 class ServiceMain : Kooby({
+
+    val http = OkHttpClient()
 
     use(ChannelsuitePersistence())
     use(LiquibaseIntegration())
@@ -106,6 +111,34 @@ class ServiceMain : Kooby({
                     Tables.PORTAL_USER.ID.eq(param<Int>("id")))
                     .fetchOne().into(PortalUser::class.java)
         }
+
+
+    }
+
+    /**
+     * helps building a request that passes on the security context.
+     * Could be moved into a library once the dependency on OkHttp turns out to be canonical.
+     */
+    fun requestPassingOnCallContext( configCode: Request.Builder.()->Unit):Request {
+        val tokenHeader = security.tokenHeader()
+        val builder = Request.Builder()
+                .addHeader(tokenHeader.name, tokenHeader.token)
+        builder.configCode()
+        return builder.build()
+    }
+
+    /**
+     * demonstrates using another service
+     */
+    get("/cockpit-metrics") {
+
+        val getMetrics = requestPassingOnCallContext {
+            get()
+            url( serviceUrl("cockpit")+"/metrics")
+        }
+
+        val metricsResponse = http.newCall(getMetrics).execute()
+        metricsResponse.body()!!.string()
     }
 
 })

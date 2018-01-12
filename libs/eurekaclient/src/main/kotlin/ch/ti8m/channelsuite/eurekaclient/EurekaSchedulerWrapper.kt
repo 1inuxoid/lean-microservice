@@ -3,6 +3,8 @@ package ch.ti8m.channelsuite.eurekaclient
 import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.serviceregistry.client.DefaultServiceInstance
 import ch.ti8m.channelsuite.serviceregistry.client.ServiceRegistry
+import ch.ti8m.channelsuite.serviceregistry.client.SimpleServiceRegistryClient
+import ch.ti8m.channelsuite.serviceregistry.client.ZoneAwareServiceRegistryClient
 import ch.ti8m.channelsuite.serviceregistry.client.api.InstanceStatus.UP
 import ch.ti8m.channelsuite.serviceregistry.client.api.RegistryEventCallback
 import ch.ti8m.channelsuite.serviceregistry.client.api.ServiceInstance
@@ -23,7 +25,8 @@ data class EurekaConfig(val serviceRegistryUrl: String,
                         val serviceContext: String,
                         val serviceIp: String,
                         val servicePort: String,
-                        val hasGui: Boolean)
+                        val hasGui: Boolean,
+                        val zone:String)
 
 /**
  * Wraps the active component (the scheduler) in the Eureka client library.
@@ -59,6 +62,10 @@ class EurekaSchedulerWrapper(val config: EurekaConfig) {
 
     private val registryScheduler = ServiceRegistryScheduler(defaultServiceInstance, fetchRegistryTask, sendHeartbeatTask, eurekaRestClient, 1000, 100000)
 
+    val registryClient = if (config.zone.isNullOrBlank())
+                            SimpleServiceRegistryClient(serviceRegistry)
+                         else
+                            ZoneAwareServiceRegistryClient(serviceRegistry, config.zone)
 
     private fun createDefaultInstance(): ServiceInstance {
         return with(config){

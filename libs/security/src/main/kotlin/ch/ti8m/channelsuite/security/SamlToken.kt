@@ -22,9 +22,9 @@ private val factory = SamlConfiguration()
 
 //TODO support token validation here
 @Suppress("DEPRECATION")
-private val marshaller = SamlTokenMarshaller()
+val marshaller = SamlTokenMarshaller()
 
-private fun converter(config: TokenConfig)  =
+fun converter(config: TokenConfig)  =
     factory.samlTokenProvider(
             config.rolesAttributeName,
             config.useridAttributeName,

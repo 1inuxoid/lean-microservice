@@ -141,12 +141,14 @@ dependencies {
     compile "org.jooby:jooby-jackson"
     compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.0"
     compile "org.jooby:jooby-apitool"
+    compile 'com.squareup.okhttp3:okhttp:3.9.1'
 
     runtime "com.h2database:h2:$h2Version"
 
     jooqRuntime "com.h2database:h2:$h2Version"
 
     testCompile 'io.rest-assured:rest-assured:3.0.6'
+    testCompile 'au.com.dius:pact-jvm-consumer-junit_2.12:3.5.11'
 }
 
 compileKotlin {
