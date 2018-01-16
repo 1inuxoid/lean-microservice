@@ -37,7 +37,7 @@ class ChannelsuiteSecurity : Jooby.Module {
         env!!.router().use("*", "*") { req, rsp, chain ->
             log.info("filtering request $req")
             val token = req.header(tokenConfig.tokenName)
-            val securityTemplate = securityTemplate(tokenConfig)
+            val securityTemplate = securityTemplate(tokenConfig, conf.getString("application.name"))
 
             securityTemplate.performLoggedInWith(token.value("")) {
                 chain.next(req, rsp)

@@ -13,9 +13,9 @@ data class TokenConfig(
 )
 
 
-fun securityTemplate(config: TokenConfig): SecurityContextTemplate =
+fun securityTemplate(config: TokenConfig, appName: String): SecurityContextTemplate =
     when (config.tokenType) {
-        TokenType.saml -> samlSecurityContextTemplate(config)
+        TokenType.saml -> samlSecurityContextTemplate(config, appName)
         TokenType.simple -> SimpleSecurityContextTemplate
     }
 

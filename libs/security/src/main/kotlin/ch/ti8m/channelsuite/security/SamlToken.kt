@@ -32,7 +32,7 @@ fun converter(config: TokenConfig)  =
 
 
 
-fun samlSecurityContextTemplate(config: TokenConfig) =
+fun samlSecurityContextTemplate(config: TokenConfig, appName: String) =
         SecurityContextTemplate(marshaller, converter(config),
             listOf( // just because we can ...
                     object : SecurityContextDistributor {
@@ -43,7 +43,7 @@ fun samlSecurityContextTemplate(config: TokenConfig) =
                         override fun cleanup() {
                             logger.info("logging out again.")
                         }
-                    }), "kotlin-poc")
+                    }), appName)
 
 
 
