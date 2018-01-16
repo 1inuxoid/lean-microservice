@@ -34,6 +34,7 @@ plugins {
     id "com.github.johnrengelman.shadow" version "2.0.2"
     id "io.spring.dependency-management" version "1.0.4.RELEASE" // support BOMs and exclusions
     id "com.palantir.git-version" version "0.10.1"
+    id "au.com.dius.pact" version "3.2.13"
 }
 
 apply plugin: 'org.junit.platform.gradle.plugin'
@@ -202,6 +203,15 @@ liquibase {
             password ''
         }
     }
+}
+
+pact {
+
+    publish {
+        pactDirectory = 'target/pacts' // defaults to $buildDir/pacts
+        pactBrokerUrl = 'http://10.10.36.108:80'
+    }
+
 }
 
 jooq {
