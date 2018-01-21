@@ -1,3 +1,4 @@
 rootProject.name = 'lean-microservice'
-include 'libs:security', 'libs:log', 'libs:eurekaclient', 'libs:kooby-jooq'
+include 'libs:security', 'libs:log', 'libs:eurekaclient', 'libs:kooby-jooq', 'libs:okhttp'
+
 

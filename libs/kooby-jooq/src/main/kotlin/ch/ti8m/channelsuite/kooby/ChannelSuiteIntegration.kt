@@ -3,11 +3,8 @@ package ch.ti8m.channelsuite.kooby
 import ch.ti8m.channelsuite.eurekaclient.EurekaConfig
 import ch.ti8m.channelsuite.eurekaclient.EurekaSchedulerWrapper
 import ch.ti8m.channelsuite.log.LogFactory
-import ch.ti8m.channelsuite.security.TokenConfig
+import ch.ti8m.channelsuite.security.*
 import ch.ti8m.channelsuite.security.api.RequestSecurityContext
-import ch.ti8m.channelsuite.security.hasCurrentUserPermission
-import ch.ti8m.channelsuite.security.securityTemplate
-import ch.ti8m.channelsuite.security.tokenProducer
 import ch.ti8m.channelsuite.serviceregistry.client.api.ServiceRegistryClient
 import com.google.inject.Binder
 import com.typesafe.config.Config
@@ -46,6 +43,12 @@ class ChannelsuiteSecurity : Jooby.Module {
         }
         tokenName = tokenConfig.tokenName
         tokenSource = tokenProducer(tokenConfig)
+
+        // sadly, guice does not support direct binding of kotlin function types yet ...
+        val tokenHeaderProvider: TokenHeaderProvider = object : TokenHeaderProvider {
+            override fun invoke() = tokenHeader()
+        }
+        binder!!.bind<TokenHeaderProvider>(TokenHeaderProvider::class.java).toInstance(tokenHeaderProvider)
         log.info("channelsuite security integration set up successfully.")
     }
 
@@ -59,10 +62,10 @@ class ChannelsuiteSecurity : Jooby.Module {
                 }
             }
 
-    data class TokenHeader(val name: String, val token: String)
 
     fun tokenHeader() = TokenHeader(tokenName, tokenSource())
 }
+
 
 /**
  * A Jooby module tying start and stop of the Eureka client to the lifecycle of the Jooby app.
