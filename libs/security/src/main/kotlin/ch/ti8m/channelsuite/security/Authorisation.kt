@@ -33,7 +33,7 @@ fun permissionSpecificationImpliesOther(superPermission: String, subPermission: 
  */
 fun hasCurrentUserPermission( permission: String, mappings: Map<String, List<String>>) : Boolean {
     val permissionsHeldByUser = RequestSecurityContext.getUserInfo().roles
-            .fold(setOf<String>()){ p:Set<String>, role:String -> p + (mappings[role]?: emptyList()) }
+            .fold(setOf()){ p:Set<String>, role:String -> p + (mappings[role]?: emptyList()) }
 
     return ! permissionsHeldByUser.find { permissionSpecificationImpliesOther(it, permission)}.isNullOrEmpty()
 }
