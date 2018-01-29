@@ -105,9 +105,9 @@ class PersistenceHealthCheck
  */
 class H2EmbeddedServer : Jooby.Module {
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
-        val port = "9092"
+        val port = conf!!.getInt("channelsuite.databaseConfig.h2-embedded-port")
         val webServer = Server.createWebServer(
-                "-webAllowOthers", "-webPort", port)
+                "-webAllowOthers", "-webPort", port.toString())
 
         env!!.onStart { _ ->
             webServer.start()
