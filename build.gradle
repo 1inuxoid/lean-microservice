@@ -1,7 +1,7 @@
 
 buildscript {
     ext {
-        kotlin_version = '1.2.10'
+        kotlin_version = '1.2.21'
         spekVersion = "1.1.5"
         joobyVersion = "1.2.3"
         junit_version = "5.0.2"
@@ -47,7 +47,7 @@ static def dateTime() {
     return date.format('yyyyMMddHHmmss')
 }
 
-def rawVersion = "1.1.0-" + dateTime() + "-" + gitVersion()
+def rawVersion = "2.0.0-" + dateTime() + "-" + gitVersion()
 def nexus_url = 'https://nexus.ti8m.ch/content/repositories/channelbank-release/'
 
 allprojects {

@@ -4,29 +4,34 @@ import ch.ti8m.channelsuite.database.ChannelsuitePersistence
 import ch.ti8m.channelsuite.database.H2EmbeddedServer
 import ch.ti8m.channelsuite.database.LiquibaseIntegration
 import ch.ti8m.channelsuite.database.PersistenceHealthCheck
-import ch.ti8m.channelsuite.kooby.ChannelsuiteSecurity
-import ch.ti8m.channelsuite.kooby.EnvMatcher
-import ch.ti8m.channelsuite.kooby.EurekaClient
-import ch.ti8m.channelsuite.kooby.serviceUrl
+import ch.ti8m.channelsuite.kooby.*
 import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.xservice.jooq.Tables
 import ch.ti8m.channelsuite.xservice.jooq.tables.pojos.PortalUser
+import com.codahale.metrics.health.HealthCheck
+import com.codahale.metrics.health.HealthCheckRegistry
 import com.codahale.metrics.jvm.FileDescriptorRatioGauge
 import com.codahale.metrics.jvm.GarbageCollectorMetricSet
 import com.codahale.metrics.jvm.MemoryUsageGaugeSet
 import com.codahale.metrics.jvm.ThreadStatesGaugeSet
 import com.fasterxml.jackson.module.kotlin.KotlinModule
+import com.google.inject.Binder
+import com.google.inject.Inject
+import com.google.inject.Scopes
+import com.typesafe.config.Config
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jooby.*
 import org.jooby.Jooby.run
 import org.jooby.apitool.ApiTool
 import org.jooby.json.Jackson
+import org.jooby.metrics.MetricHandler
 import org.jooby.metrics.Metrics
 import org.jooq.DSLContext
 
 
 private val logger = object : LogFactory {}.packageLogger()
+
 
 /**
  * A request to create a user
@@ -64,7 +69,9 @@ class ServiceMain : Kooby({
                         .metric("gc", GarbageCollectorMetricSet())
                         .metric("fs", FileDescriptorRatioGauge())
                 )
+                use(SpringActuatorLikeMetricsModule())
             }
+
 
     /**
      * helps building a request that passes on the security context.

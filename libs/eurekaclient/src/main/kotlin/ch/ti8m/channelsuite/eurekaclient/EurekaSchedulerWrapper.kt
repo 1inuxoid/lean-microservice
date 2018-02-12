@@ -8,6 +8,7 @@ import ch.ti8m.channelsuite.serviceregistry.client.ZoneAwareServiceRegistryClien
 import ch.ti8m.channelsuite.serviceregistry.client.api.InstanceStatus.UP
 import ch.ti8m.channelsuite.serviceregistry.client.api.RegistryEventCallback
 import ch.ti8m.channelsuite.serviceregistry.client.api.ServiceInstance
+import ch.ti8m.channelsuite.serviceregistry.client.config.ServiceRegistryClientConstants
 import ch.ti8m.channelsuite.serviceregistry.client.eureka.EurekaRestClient
 import ch.ti8m.channelsuite.serviceregistry.client.eureka.EurekaServiceURLProvider
 import ch.ti8m.channelsuite.serviceregistry.client.schedule.FetchRegistryTask
@@ -20,14 +21,18 @@ import kotlin.collections.ArrayList
 /**
  * Defines the configuration of the Eureka client.
  */
-data class EurekaConfig(val serviceRegistryUrl: String,
-                        val serviceName: String,
-                        val serviceContext: String,
-                        val serviceIp: String,
-                        val servicePort: String,
-                        val hasGui: Boolean,
-                        val zone:String)
+data class EurekaConfig(val client:Client, val instance: Instance)
 
+data class Instance(val serviceName: String, val hostName: String, val port: Int,
+                    val serviceContext: String = "",
+                    val zone: String,
+                    val metadata: Map<String, Any>)
+
+data class Client(var preferSameZone: Boolean = true,
+                  var serviceRegistryUrl: Map<String, List<String>>,
+                  var heartbeatIntervalInMs: Int ,
+                  var fetchRegistryIntervalInMs: Int
+)
 /**
  * Wraps the active component (the scheduler) in the Eureka client library.
  * The scheduler
@@ -38,18 +43,14 @@ data class EurekaConfig(val serviceRegistryUrl: String,
  */
 class EurekaSchedulerWrapper(val config: EurekaConfig) {
 
-    private val instanceId = with(config){ "${serviceIp}:${serviceName}:${servicePort}"}
+    private val instanceId = with(config){ "${instance.hostName}:${instance.serviceName}:${instance.port}"}
 
     private val defaultServiceInstance = createDefaultInstance()
     private val eurekaServiceURLProvider = createEurekaServiceURLProvider()
 
     private fun createEurekaServiceURLProvider(): EurekaServiceURLProvider {
-        val eurekaServiceUrls = HashMap<String, List<String>>()
-        val urls = listOf(config.serviceRegistryUrl)
-
-        eurekaServiceUrls.put("default", urls)
-
-        return EurekaServiceURLProvider(eurekaServiceUrls, true, "default")
+        val eurekaServiceUrls = config.client.serviceRegistryUrl
+        return EurekaServiceURLProvider(eurekaServiceUrls, config.client.preferSameZone, config.instance.zone)
     }
 
     //TODO wire in jooby/dropwizard health-checks here.
@@ -57,26 +58,21 @@ class EurekaSchedulerWrapper(val config: EurekaConfig) {
 
     private val registryEventCallback = NoOPRegistryEventCallback()
     private val serviceRegistry = ServiceRegistry(registryEventCallback)
-    private val fetchRegistryTask = FetchRegistryTask(eurekaRestClient, serviceRegistry, config.serviceName)
-    private val sendHeartbeatTask = SendHeartbeatTask(eurekaRestClient, defaultServiceInstance, config.serviceName)
+    private val fetchRegistryTask = FetchRegistryTask(eurekaRestClient, serviceRegistry, config.instance.serviceName)
+    private val sendHeartbeatTask = SendHeartbeatTask(eurekaRestClient, defaultServiceInstance, config.instance.serviceName)
 
-    private val registryScheduler = ServiceRegistryScheduler(defaultServiceInstance, fetchRegistryTask, sendHeartbeatTask, eurekaRestClient, 1000, 100000)
+    private val registryScheduler = ServiceRegistryScheduler(defaultServiceInstance, fetchRegistryTask, sendHeartbeatTask, eurekaRestClient, config.client.heartbeatIntervalInMs, config.client.fetchRegistryIntervalInMs)
 
-    val registryClient = if (config.zone.isNullOrBlank())
+    val registryClient = if (config.instance.zone == ServiceRegistryClientConstants.DEFAULT_ZONE )
                             SimpleServiceRegistryClient(serviceRegistry)
                          else
-                            ZoneAwareServiceRegistryClient(serviceRegistry, config.zone)
+                            ZoneAwareServiceRegistryClient(serviceRegistry, config.instance.zone)
 
     private fun createDefaultInstance(): ServiceInstance {
-        return with(config){
-            val metaData = hashMapOf(
-                    "hasGUI" to  hasGui.toString(),
-                    "serviceContext" to serviceContext,
-                    "name" to serviceName
-            )
-            DefaultServiceInstance(instanceId, serviceName, serviceIp,
-                    parseInt(servicePort), false, UP,
-                    serviceContext, metaData, serviceIp, ArrayList())
+        return with(config.instance){
+            DefaultServiceInstance(instanceId, serviceName,  hostName,
+                    port, false, UP,
+                    serviceContext,  metadata.map { it.key to it.value.toString()}.toMap(), hostName, ArrayList())
         }
     }
 
