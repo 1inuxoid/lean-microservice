@@ -58,8 +58,8 @@ class ActuatorMetricsHandler : Route.Handler {
         val heapMemoryUsage = memoryMXBean.heapMemoryUsage
         val nonHeapMemoryUsage = memoryMXBean.nonHeapMemoryUsage
 
-        val totalMem = heapMemoryUsage.committed + nonHeapMemoryUsage.committed
-        val usedTotalMem = heapMemoryUsage.used + nonHeapMemoryUsage.used
+        val totalMem = (heapMemoryUsage.committed + nonHeapMemoryUsage.committed)/1024
+        val usedTotalMem = (heapMemoryUsage.used + nonHeapMemoryUsage.used)/1024
 
         rsp!!.status(Status.OK)
                 .header("Cache-Control", "no-cache,must-revalidate,no-store")

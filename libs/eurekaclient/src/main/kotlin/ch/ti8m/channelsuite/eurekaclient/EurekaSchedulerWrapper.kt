@@ -26,7 +26,7 @@ data class EurekaConfig(val client:Client, val instance: Instance)
 data class Instance(val serviceName: String, val hostName: String, val port: Int,
                     val serviceContext: String = "",
                     val zone: String,
-                    val metadata: Map<String, Any>)
+                    val metadata: Map<String, String>)
 
 data class Client(var preferSameZone: Boolean = true,
                   var serviceRegistryUrl: Map<String, List<String>>,
@@ -72,7 +72,7 @@ class EurekaSchedulerWrapper(val config: EurekaConfig) {
         return with(config.instance){
             DefaultServiceInstance(instanceId, serviceName,  hostName,
                     port, false, UP,
-                    serviceContext,  metadata.map { it.key to it.value.toString()}.toMap(), hostName, ArrayList())
+                    serviceContext,  metadata.map { it.key to it.value }.toMap(), hostName, ArrayList())
         }
     }
 

@@ -13,7 +13,7 @@ internal class ConfigurationTest {
 
 
     val eurekaConfig = EurekaConfig(Client(true, mapOf("default" to listOf("url")),10,10),
-            Instance("name", "host", 8080, "ctxt", "default", mapOf( "hasGui" to true) ) )
+            Instance("name", "host", 8080, "ctxt", "default", mapOf( "hasGui" to "true") ) )
 
 
 
