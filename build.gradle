@@ -19,6 +19,12 @@ buildscript {
             url "https://plugins.gradle.org/m2/"
         }
     }
+
+    def credentialStorageScript = new File(System.properties["user.home"], ".ti8m-forge/credentials-storage.gradle")
+    assert credentialStorageScript.exists(): "Please, apply the credential-storage.gradle file as described in  https://gitlab.ti8m.ch/ti8m-forge/gradle-credentials !"
+
+    apply from: credentialStorageScript.absolutePath
+
     dependencies {
         classpath "org.liquibase:liquibase-groovy-dsl:1.2.2"
         classpath 'com.h2database:h2:1.4.192'
@@ -65,8 +71,8 @@ allprojects {
         maven {
             name "channelsuite"
             credentials {
-                username user
-                password pwd
+                username getRepoUsername("nexus.ti8m.ch")
+                password getRepoPassword("nexus.ti8m.ch")
             }
             url nexus_url
         }
@@ -103,7 +109,7 @@ subprojects {
         repositories {
             mavenDeployer {
                 repository(url: nexus_url) {
-                    authentication(userName: user, password: pwd)
+                    authentication(userName: getRepoUsername("nexus.ti8m.ch"), password: getRepoPassword("nexus.ti8m.ch"))
                 }
 
             }

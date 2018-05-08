@@ -20,7 +20,7 @@ internal class ConfigurationTest {
     @Test
     fun serializeConfig() {
 
-        println( eurekaConfig.toConfig("channelsuite.eureka").root().render() );
+        println( eurekaConfig.toConfig("channelsuite.eureka").root().render() )
 
     }
 
@@ -42,6 +42,8 @@ internal class ConfigurationTest {
         "eureka" : {
             # hardcoded value
             "client" : {
+                # hardcoed value
+                enabled: false,
                 # hardcoded value
                 "fetchRegistryIntervalInMs" : 30000,
                 # hardcoded value
