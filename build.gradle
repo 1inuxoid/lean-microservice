@@ -63,7 +63,6 @@ def rawVersion = baseVersion + "-" + dateTime() + "-" + gitFromCliVersion()
 def nexus_url = 'https://nexus.ti8m.ch/content/repositories/channelbank-release/'
 
 
-version = rawVersion
 
 allprojects {
     apply plugin: 'kotlin'
@@ -71,7 +70,7 @@ allprojects {
     apply plugin: 'maven'
 
     group 'ch.ti8m.channelsuite'
-    version rawVersion.take(rawVersion.lastIndexOf('.'))
+    version = rawVersion
 
     repositories {
         mavenCentral()
