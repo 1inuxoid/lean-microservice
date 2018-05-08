@@ -39,11 +39,14 @@ pipeline {
                     script {
                         sh 'env | sort'
 
-                        sh './gradlew build jar uploadArchives'
+                        sh './gradlew build jar'
 
                         if (env.BRANCH_NAME == 'master') {
                             sh './gradlew uploadArchives'
+                        } else {
+                            println "Skipping uploading artifact (non-master-branch)"
                         }
+
                     }
                 }
             }
