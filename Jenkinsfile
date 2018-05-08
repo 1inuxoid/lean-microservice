@@ -39,7 +39,7 @@ pipeline {
                     script {
                         sh 'env | sort'
 
-                        sh './gradlew build war'
+                        sh './gradlew build jar uploadArchives'
 
                         if (env.BRANCH_NAME == 'master') {
                             sh './gradlew uploadArchives'
