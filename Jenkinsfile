@@ -29,12 +29,6 @@ pipeline {
         )
     }
 
-    tools {
-        gradle 'Gradle 4.2.x'
-        jdk 'jdk-8_latest'
-        nodejs 'NodeJS_latest'
-    }
-
     // put here environment variables use in following steps
     // environment {}
 
@@ -42,7 +36,15 @@ pipeline {
         stage('Build, test and deploy') {
             steps{
                 ansiColor('xterm') {
-                    sh './gradlew build war uploadArchives'
+                    script {
+                        sh 'env | sort'
+
+                        sh './gradlew build war'
+
+                        if (env.BRANCH_NAME == 'master') {
+                            sh './gradlew uploadArchives'
+                        }
+                    }
                 }
             }
         }
