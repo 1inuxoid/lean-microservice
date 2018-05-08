@@ -54,8 +54,16 @@ static def dateTime() {
     return date.format('yyyyMMddHHmmss')
 }
 
-def rawVersion = "2.0.0-" + dateTime() + "-" + gitVersion()
+def gitFromCliVersion() {
+    return "git rev-parse --short HEAD".execute().text.trim()
+}
+
+
+def rawVersion = baseVersion + "-" + dateTime() + "-" + gitFromCliVersion()
 def nexus_url = 'https://nexus.ti8m.ch/content/repositories/channelbank-release/'
+
+
+version = rawVersion
 
 allprojects {
     apply plugin: 'kotlin'
