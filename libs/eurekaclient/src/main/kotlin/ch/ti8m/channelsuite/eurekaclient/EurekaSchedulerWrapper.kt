@@ -31,7 +31,8 @@ data class Instance(val serviceName: String, val hostName: String, val port: Int
 data class Client(var preferSameZone: Boolean = true,
                   var serviceRegistryUrl: Map<String, List<String>>,
                   var heartbeatIntervalInMs: Int ,
-                  var fetchRegistryIntervalInMs: Int
+                  var fetchRegistryIntervalInMs: Int,
+                  var enabled: Boolean = true
 )
 /**
  * Wraps the active component (the scheduler) in the Eureka client library.
@@ -77,11 +78,15 @@ class EurekaSchedulerWrapper(val config: EurekaConfig) {
     }
 
     fun start() {
-        registryScheduler.start()
+        if(this.config.client.enabled) {
+            registryScheduler.start()
+        }
     }
 
     fun stop() {
-        registryScheduler.shutdown()
+        if (this.config.client.enabled) {
+            registryScheduler.shutdown()
+        }
     }
 }
 
