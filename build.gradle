@@ -5,7 +5,7 @@ buildscript {
         spekVersion = "1.1.5"
         joobyVersion = "1.2.3"
         junit_version = "5.0.2"
-        jooqVersion = "3.10.2"
+        jooqVersion = "3.10.7"
         h2Version = "1.4.196"
         dokka_version = "0.9.14"
         security_version = "4.0.0-20171027123447-ee20432"
@@ -167,7 +167,7 @@ project(':libs:kooby-jooq') {
         compile "org.jooby:jooby-metrics:$joobyVersion"
 
         compileOnly "com.h2database:h2:$h2Version"
-        compile "org.jooq:jooq:$jooqVersion"
+        compile "org.jooq.trial:jooq:$jooqVersion"
 
         compile project(':libs:security')
         compile project(':libs:eurekaclient')

@@ -55,6 +55,8 @@ class ChannelsuitePersistence : Jooby.Module {
     private fun dialect(jdbcUrl:String): SQLDialect = when {
         jdbcUrl.contains("h2") -> SQLDialect.H2
         jdbcUrl.contains("postgres") -> SQLDialect.POSTGRES
+        jdbcUrl.contains("oracle") ->
+            if (jdbcUrl.toUpperCase().contains("XE")) SQLDialect.ORACLE11G else SQLDialect.ORACLE12C
         else -> SQLDialect.DEFAULT
     }
 
@@ -105,6 +107,7 @@ class PersistenceHealthCheck
  */
 class H2EmbeddedServer : Jooby.Module {
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
+        // TODO: allow using custom db parameters (url / user)
         val port = conf!!.getInt("channelsuite.databaseConfig.h2-embedded-port")
         val webServer = Server.createWebServer(
                 "-webAllowOthers", "-webPort", port.toString())
