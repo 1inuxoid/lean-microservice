@@ -246,6 +246,8 @@ pact {
 }
 
 jooq {
+    version = "3.10.7"
+    edition = 'TRIAL'
     records(sourceSets.main) {
         jdbc {
             driver = 'org.h2.Driver'
