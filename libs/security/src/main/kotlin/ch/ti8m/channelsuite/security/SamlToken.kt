@@ -1,49 +1,35 @@
-package ch.ti8m.channelsuite.security
+package ch.ti8m.channelsuite.security.saml
 
 import ch.ti8m.channelsuite.log.LogFactory
-import ch.ti8m.channelsuite.security.api.SecurityContextDistributor
-import ch.ti8m.channelsuite.security.api.SecurityContextTemplate
+import ch.ti8m.channelsuite.security.TokenSupportFactory
 import ch.ti8m.channelsuite.security.api.SecurityToken
-import ch.ti8m.channelsuite.security.api.UserInfo
-import ch.ti8m.channelsuite.security.saml.SamlConfiguration
-import ch.ti8m.channelsuite.security.saml.SamlTokenMarshaller
+import ch.ti8m.channelsuite.security.api.SecurityTokenProperties
+import ch.ti8m.channelsuite.security.api.TokenValidator
+import ch.ti8m.channelsuite.security.keystore
 
 
 /**
- * Wires up and configures support for SAML tokens as means of transporting user identity
+ * Wires up and configures support for SAML tokens as a means of transporting user identity
  *
  * @author marcus
  * @since  27.10.17
  */
 
-private val logger = object : LogFactory {}.packageLogger()
+internal class SamlTokenSupportFactory(val config: SecurityTokenProperties) : TokenSupportFactory<SamlToken> {
+    override fun validator()
+            = if (config.validation.isEnabled)
+                    SamlTokenValidator(config, SamlTokenSignatureValidator(keystore(config.signing.keystore)))
+              else NoopValidator
 
-private val factory = SamlConfiguration()
+    override fun tokenMarshaller()
+            = SamlTokenMarshaller()
 
-//TODO support token validation here
-@Suppress("DEPRECATION")
-val marshaller = SamlTokenMarshaller()
+    override fun tokenConverter()
+            = SamlUserInfoTokenConverter(config, if (config.signing.isEnabled) SamlTokenSigner(config, keystore(config.signing.keystore)) else null )
+}
 
-fun converter(config: TokenConfig)  =
-    factory.samlTokenProvider(
-            config.rolesAttributeName,
-            config.useridAttributeName,
-            config.tenantAttributeName)
-
-
-
-fun samlSecurityContextTemplate(config: TokenConfig, appName: String) =
-        SecurityContextTemplate(marshaller, converter(config),
-            listOf( // just because we can ...
-                    object : SecurityContextDistributor {
-                        override fun distribute(userInfo: UserInfo?, token: SecurityToken?) {
-                            logger.info("User {} logged in.", userInfo)
-                        }
-
-                        override fun cleanup() {
-                            logger.info("logging out again.")
-                        }
-                    }), appName)
-
+private object NoopValidator : TokenValidator<SamlToken> {
+    override fun validateToken(securityToken: SamlToken) {}
+}
 
 

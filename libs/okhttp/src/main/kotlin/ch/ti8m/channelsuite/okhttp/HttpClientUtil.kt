@@ -1,6 +1,7 @@
 package ch.ti8m.channelsuite.okhttp
 
 import ch.ti8m.channelsuite.security.TokenHeaderProvider
+import ch.ti8m.channelsuite.serviceregistry.client.api.ServiceInstance
 import ch.ti8m.channelsuite.serviceregistry.client.api.ServiceRegistryClient
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.Config
@@ -40,9 +41,12 @@ fun org.jooby.Request.providerUrl(service: String): HttpUrl.Builder {
     val instance = require(ServiceRegistryClient::class.java).getNextServiceInstance(service)
 
     val urlBuilder = HttpUrl.Builder()
-    return urlBuilder.scheme("http").port(instance.port).host(instance.hostname)
-            .addPathSegment(service)
+    return urlBuilderFromServiceInstance(urlBuilder, instance, service)
 }
+
+private fun urlBuilderFromServiceInstance(urlBuilder: HttpUrl.Builder, instance: ServiceInstance, service: String) =
+        urlBuilder.scheme("http").port(instance.port).host(instance.hostname)
+                .addPathSegment(service)
 
 /**
  * helps building a request that passes on the security context.
