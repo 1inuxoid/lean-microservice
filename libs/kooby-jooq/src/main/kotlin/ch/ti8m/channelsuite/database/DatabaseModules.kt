@@ -38,7 +38,8 @@ data class DatabaseConfig(
         val jdbcUrl: String,
         val username: String,
         val password: String,
-        val checkStatement: String
+        val checkStatement: String,
+        val optimisticLocking: Boolean? = false
 )
 
 private fun databaseConfig(conf: Config?): DatabaseConfig {
@@ -75,9 +76,9 @@ class ChannelsuitePersistence : Jooby.Module {
                         DataSourceConnectionProvider(hikariDataSource)))
                 .set(dialect(dbConfig.jdbcUrl))
                 .set(Settings().withRenderSchema(false)
-                        .withRenderNameStyle(RenderNameStyle.AS_IS))
+                        .withRenderNameStyle(RenderNameStyle.AS_IS)
+                        .withExecuteWithOptimisticLocking(dbConfig.optimisticLocking))
                 .set(TransactionListenerProvider { TransactionLogger })
-
         binder!!.bind(DSLContext::class.java).toProvider(Provider<DSLContext> { DSL.using(jooqConfig) })
 
         binder.bind(DataSource::class.java).toInstance(hikariDataSource)
