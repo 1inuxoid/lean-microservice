@@ -16,7 +16,6 @@ internal class ConfigurationTest {
             Instance("name", "host", 8080, "ctxt", "default", mapOf( "hasGui" to "true") ) )
 
 
-
     @Test
     fun serializeConfig() {
 

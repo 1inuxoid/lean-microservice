@@ -1,5 +1,10 @@
 package ch.ti8m.channelsuite.config
 
+import ch.ti8m.channelsuite.security.TokenHeader
+import ch.ti8m.channelsuite.security.TokenHeaderProvider
+import ch.ti8m.channelsuite.security.api.RequestInfoImpl
+import ch.ti8m.channelsuite.security.api.SecurityContextTemplate
+import ch.ti8m.channelsuite.security.api.UserInfoFactory
 import ch.ti8m.channelsuite.xservice.ServiceMain
 import ch.ti8m.channelsuite.xservice.UserCreationRequest
 import cucumber.api.java.After
@@ -11,7 +16,6 @@ import io.restassured.RestAssured.`when`
 import io.restassured.RestAssured.given
 import io.restassured.http.Header
 import org.hamcrest.Matchers.*
-import org.junit.Ignore
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -39,12 +43,12 @@ class ApiTest  {
 
     @Given("^a logged in and permitted user$")
     fun setupAdmin() {
-        authHeaderForAdmin = Header("AL_IDENTITY", "admin|[everything,admin]")
+        authHeaderForAdmin = tokenHeader("admin", "admin", "everything", "admin")
     }
 
     @Given("^a not authorized user$")
     fun setupUnauthorizedUser() {
-        authHeaderForUnauthorisedUser = Header("AL_IDENTITY", "noob|[stuff]")
+        authHeaderForUnauthorisedUser =  tokenHeader("noob","noob", "stuff")
     }
 
     @Test
@@ -118,5 +122,17 @@ class ApiTest  {
                 .then()
                 .statusCode(200)
                 .body("username", equalTo("hugo"))
+    }
+
+    private fun tokenHeader(loginId: String, userId: String, vararg roles: String): Header {
+        val headerProvider = app.require(TokenHeaderProvider::class.java)
+        val template = app.require(SecurityContextTemplate::class.java)
+
+        var token = TokenHeader("", "")
+        template.performLoggedInWith(UserInfoFactory.userInfoFor(loginId, userId, *roles),
+                RequestInfoImpl.EMPTY) {
+            token = headerProvider()
+        }
+        return Header(token.name, token.token)
     }
 }

@@ -1,6 +1,12 @@
 package ch.ti8m.channelsuite.eurekaclient
 
 import ch.ti8m.channelsuite.log.LogFactory
+import ch.ti8m.channelsuite.security.TokenTransportConfig
+import ch.ti8m.channelsuite.security.api.ContextTokenProvider
+import ch.ti8m.channelsuite.security.api.SecurityTokenProperties
+import ch.ti8m.channelsuite.security.contextTokenProvider
+import ch.ti8m.channelsuite.security.rest.SimpleHttpUrlConnectionTokenAdder
+import ch.ti8m.channelsuite.security.tokenAdder
 import ch.ti8m.channelsuite.serviceregistry.client.DefaultServiceInstance
 import ch.ti8m.channelsuite.serviceregistry.client.ServiceRegistry
 import ch.ti8m.channelsuite.serviceregistry.client.SimpleServiceRegistryClient
@@ -14,6 +20,7 @@ import ch.ti8m.channelsuite.serviceregistry.client.eureka.EurekaServiceURLProvid
 import ch.ti8m.channelsuite.serviceregistry.client.schedule.FetchRegistryTask
 import ch.ti8m.channelsuite.serviceregistry.client.schedule.SendHeartbeatTask
 import ch.ti8m.channelsuite.serviceregistry.client.schedule.ServiceRegistryScheduler
+import ch.ti8m.channelsuite.serviceregistry.client.utils.SimpleUrlConnectionUtil
 import java.lang.Integer.parseInt
 import java.util.HashMap
 import kotlin.collections.ArrayList
@@ -42,7 +49,8 @@ data class Client(var preferSameZone: Boolean = true,
  *  * maintains a local copy of the central registry.
  *
  */
-class EurekaSchedulerWrapper(val config: EurekaConfig) {
+class EurekaSchedulerWrapper(val config: EurekaConfig,
+                             tokenConfig: SecurityTokenProperties, transportConfig: TokenTransportConfig) {
 
     private val instanceId = with(config){ "${instance.hostName}:${instance.serviceName}:${instance.port}"}
 
@@ -55,7 +63,8 @@ class EurekaSchedulerWrapper(val config: EurekaConfig) {
     }
 
     //TODO wire in jooby/dropwizard health-checks here.
-    private val eurekaRestClient = EurekaRestClient(eurekaServiceURLProvider)
+    private val eurekaRestClient = EurekaRestClient(eurekaServiceURLProvider,
+            SimpleUrlConnectionUtil(tokenAdder(tokenConfig, transportConfig), 10000, 10000 ))
 
     private val registryEventCallback = NoOPRegistryEventCallback()
     private val serviceRegistry = ServiceRegistry(registryEventCallback)
