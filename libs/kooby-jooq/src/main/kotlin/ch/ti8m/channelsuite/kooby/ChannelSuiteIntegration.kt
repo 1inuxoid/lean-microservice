@@ -33,13 +33,11 @@ class ChannelsuiteSecurity : Jooby.Module {
 
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
 
-        // TODO loading the default-reference explicitly here should not be necessary -- file a Jooby issue?
-        val securityConfig = conf?.withFallback(ConfigFactory.defaultReference())
-                ?.getConfig("channelsuite.security") ?: throw RuntimeException("Missing config for channelsuite.security")
+        val securityConfig = channelsuiteSecurityConfig(conf)
         val tokenConfig = securityTokenProperties(securityConfig)
         val transportConfig = adderExtractorConfig(securityConfig)
 
-        mappings = conf.extract("channelsuite.permissions")
+        mappings = conf!!.extract("channelsuite.permissions")
         val securityTemplate = securityTemplate(tokenConfig, conf.getString("application.name"))
 
         env!!.router().use("*", "*") { req, rsp, chain ->
@@ -86,6 +84,10 @@ class ChannelsuiteSecurity : Jooby.Module {
 
 //private val defaults = ConfigFactory.parseM
 
+// TODO loading the default-reference explicitly here should not be necessary -- file a Jooby issue?
+internal fun channelsuiteSecurityConfig(conf: Config?): Config = conf?.withFallback(ConfigFactory.defaultReference())
+        ?.getConfig("channelsuite.security") ?: throw RuntimeException("Missing config for channelsuite.security")
+
 internal fun securityTokenProperties(conf: Config?) : SecurityTokenProperties {
     val properties = ConfigBeanFactory.create(conf?.getConfig("token"), SecurityTokenProperties::class.java)
     if (! properties.signing.isEnabled) properties.signing.keystore.path = null
@@ -95,7 +97,7 @@ internal fun securityTokenProperties(conf: Config?) : SecurityTokenProperties {
 fun adderExtractorConfig(conf: Config) : TokenAdderExtractorConfig {
     val defaultConfig = conf.extract<TokenTransportConfig>("identity-token")
     var adderTransport = defaultConfig.transport
-    var extractorTransport = defaultConfig.transport
+    val extractorTransport = defaultConfig.transport
 
     if (conf.hasPath("identity-token-adder.transport"))
         adderTransport = conf.getEnum(Transport::class.java,"identity-token-adder.transport")
@@ -115,12 +117,13 @@ class EurekaClient : Jooby.Module {
     private val logger = object : LogFactory{}.classLogger()
 
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
-        val config = conf!!.extract<EurekaConfig>("channelsuite.eurekaConfig")
-        val tokenConfig = securityTokenProperties(conf)
-        val transportConfig = adderExtractorConfig(conf)
+        val eurekaConfig = conf!!.extract<EurekaConfig>("channelsuite.eurekaConfig")
 
+        val securityConfig = channelsuiteSecurityConfig(conf)
+        val tokenConfig = securityTokenProperties(securityConfig)
+        val transportConfig = adderExtractorConfig(securityConfig)
 
-        val eurekaScheduler = EurekaSchedulerWrapper(config, tokenConfig, transportConfig.adder)
+        val eurekaScheduler = EurekaSchedulerWrapper(eurekaConfig , tokenConfig, transportConfig.adder)
 
         thread(true) { eurekaScheduler.start() }
         Runtime.getRuntime().addShutdownHook(object : Thread() {
