@@ -90,7 +90,8 @@ internal fun channelsuiteSecurityConfig(conf: Config?): Config = conf?.withFallb
 
 internal fun securityTokenProperties(conf: Config?) : SecurityTokenProperties {
     val properties = ConfigBeanFactory.create(conf?.getConfig("token"), SecurityTokenProperties::class.java)
-    if (! properties.signing.isEnabled) properties.signing.keystore.path = null
+    if (!properties.signing.isEnabled) properties.signing.keystore.path = null
+    if (!properties.validation.isEnabled) properties.validation.keystore.path = null
     return properties
 }
 
