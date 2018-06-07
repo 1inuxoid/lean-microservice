@@ -59,11 +59,11 @@ fun securityTemplate(config: SecurityTokenProperties, appName: String): Security
             listOf( // just because we can ...
                     object : SecurityContextDistributor {
                         override fun distribute(userInfo: UserInfo?, token: SecurityToken?) {
-                            logger.info("User {} logged in.", userInfo)
+                            logger.debug("User {} logged in.", userInfo)
                         }
 
                         override fun cleanup() {
-                            logger.info("logging out again.")
+                            logger.debug("logging out again.")
                         }
                     }), appName)
 }

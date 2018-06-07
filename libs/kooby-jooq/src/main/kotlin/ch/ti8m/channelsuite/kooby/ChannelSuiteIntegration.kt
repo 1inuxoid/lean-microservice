@@ -41,7 +41,7 @@ class ChannelsuiteSecurity : Jooby.Module {
         val securityTemplate = securityTemplate(tokenConfig, conf.getString("application.name"))
 
         env!!.router().use("*", "*") { req, rsp, chain ->
-            log.info("filtering request $req")
+            log.debug("filtering request {}", req)
 
             val token : Optional<String> = when(transportConfig.extractor.transport) {
                 Transport.header -> req.header(transportConfig.extractor.name).toOptional()
