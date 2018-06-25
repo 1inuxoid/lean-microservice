@@ -3,7 +3,7 @@ buildscript {
     ext {
         kotlin_version = '1.2.41'
         spekVersion = "1.1.5"
-        joobyVersion = "1.2.3"
+        joobyVersion = "1.4.1"
         junit_version = "5.0.2"
         jooqVersion = "3.10.7"
         h2Version = "1.4.196"
@@ -313,3 +313,5 @@ test.dependsOn cucumber
 
 generateRecordsJooqSchemaSource.dependsOn update
 compileKotlin.dependsOn generateRecordsJooqSchemaSource
+
+sourceSets.main.java.srcDir "${project.projectDir}/build/generated-src/jooq/records"

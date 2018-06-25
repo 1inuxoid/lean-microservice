@@ -15,7 +15,6 @@ import com.typesafe.config.ConfigFactory
 import io.github.config4k.extract
 import org.jooby.*
 import java.util.*
-import kotlin.concurrent.thread
 
 /**
  * A Jooby modules setting up a channelsuite security-context for each request to an
@@ -126,14 +125,31 @@ class EurekaClient : Jooby.Module {
 
         val eurekaScheduler = EurekaSchedulerWrapper(eurekaConfig , tokenConfig, transportConfig.adder)
 
-        thread(true) { eurekaScheduler.start() }
+        env!!.onStart { _ ->
+            startScheduler(eurekaScheduler)
+        }
+        env.onStop { _ ->
+            stopScheduler(eurekaScheduler)
+        }
+
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
-                logger.info("Shutting down")
-                eurekaScheduler.stop()
+                stopScheduler(eurekaScheduler)
             }
         })
+
+
         binder!!.bind(ServiceRegistryClient::class.java).toInstance(eurekaScheduler.registryClient)
+    }
+
+    private fun startScheduler(eurekaScheduler: EurekaSchedulerWrapper) {
+        logger.info("Starting Eureka scheduler")
+        eurekaScheduler.start()
+    }
+
+    private fun stopScheduler(eurekaScheduler: EurekaSchedulerWrapper) {
+        logger.info("Stopping Eureka scheduler")
+        eurekaScheduler.stop()
     }
 }
 
