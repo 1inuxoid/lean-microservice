@@ -14,38 +14,26 @@ private val logger = object : LogFactory {}.packageLogger()
 
 enum class Transport { cookie, header }
 
-data class TokenTransportConfig(
-        val name: String,
-        val transport: Transport
-)
+data class TokenTransportConfig(val name: String, val transport: Transport)
 
-data class TokenAdderExtractorConfig(
-        val adder: TokenTransportConfig,
-        val extractor: TokenTransportConfig
-)
+data class TokenAdderExtractorConfig(val adder: TokenTransportConfig, val extractor: TokenTransportConfig)
 
-fun httpTokenTranport( config:TokenTransportConfig) =
-        when ( config.transport) {
-            Transport.cookie -> HttpCookieTokenTransport(config.name)
-            Transport.header -> HttpRequestHeaderTokenTransport(config.name)
-        }
-
-fun  tokenAdder(config: SecurityTokenProperties, transportConfig:TokenTransportConfig) : SimpleHttpUrlConnectionTokenAdder {
-    val tokenSupportFactory = tokenSupportFactory(config)
-    return SimpleHttpUrlConnectionTokenAdder(contextTokenProvider(config),tokenSupportFactory.tokenMarshaller(),
-            httpTokenTranport(transportConfig))
+fun httpTokenTransport(config: TokenTransportConfig) = when (config.transport) {
+    Transport.cookie -> HttpCookieTokenTransport(config.name)
+    Transport.header -> HttpRequestHeaderTokenTransport(config.name)
 }
 
-fun tokenProducer(config: SecurityTokenProperties) =
-        {
-            val tokenSupportFactory = tokenSupportFactory(config)
-            tokenSupportFactory.tokenMarshaller().marshal(
-                   contextTokenProvider(config)
-                            .tokenForCurrentContext()
-            )
-        }
+fun tokenAdder(config: SecurityTokenProperties, transportConfig: TokenTransportConfig): SimpleHttpUrlConnectionTokenAdder {
+    val tokenSupportFactory = tokenSupportFactory(config)
+    return SimpleHttpUrlConnectionTokenAdder(contextTokenProvider(config), tokenSupportFactory.tokenMarshaller(), httpTokenTransport(transportConfig))
+}
 
-fun contextTokenProvider(config: SecurityTokenProperties) :ContextTokenProvider {
+fun tokenProducer(config: SecurityTokenProperties) = {
+    val tokenSupportFactory = tokenSupportFactory(config)
+    tokenSupportFactory.tokenMarshaller().marshal(contextTokenProvider(config).tokenForCurrentContext())
+}
+
+fun contextTokenProvider(config: SecurityTokenProperties): ContextTokenProvider {
     val tokenSupportFactory = tokenSupportFactory(config)
     return ContextTokenProvider(tokenSupportFactory.tokenConverter())
 }
@@ -77,12 +65,9 @@ interface TokenSupportFactory<T : SecurityToken> {
     fun tokenConverter(): UserInfoTokenConverter
 }
 
-fun tokenSupportFactory(config: SecurityTokenProperties) =
-        when (config.type!!) {
-            SAML -> SamlTokenSupportFactory(config)
-            JWT -> JwtTokenSupportFactory(config)
-        }
+fun tokenSupportFactory(config: SecurityTokenProperties) = when (config.type!!) {
+    SAML -> SamlTokenSupportFactory(config)
+    JWT -> JwtTokenSupportFactory(config)
+}
 
-
-fun keystore(keystoreConf: SecurityTokenProperties.TokenKeyStore) = KeystoreLoader.loadKeystore(
-        keystoreConf.getPath(), keystoreConf.getPassword())
+fun keystore(keystoreConf: SecurityTokenProperties.TokenKeyStore) = KeystoreLoader.loadKeystore(keystoreConf.getPath(), keystoreConf.getPassword())
