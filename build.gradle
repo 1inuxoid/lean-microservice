@@ -1,7 +1,8 @@
+import org.apache.tools.ant.filters.ReplaceTokens
 
 buildscript {
     ext {
-        kotlin_version = '1.2.41'
+        kotlin_version = '1.2.50'
         spekVersion = "1.1.5"
         joobyVersion = "1.4.1"
         junit_version = "5.0.2"
@@ -9,7 +10,7 @@ buildscript {
         h2Version = "1.4.196"
         dokka_version = "0.9.14"
         security_version = "6.0.0-20180525113504-993f80a"
-        eurekaclient_version = "2.0.0-20180228121707-0ac3425"
+        eurekaclient_version = "3.0.0-20180627120605-73c7b32"
         cucumber_version = "2.3.1"
     }
 
@@ -58,6 +59,10 @@ def gitFromCliVersion() {
     return "git rev-parse --short HEAD".execute().text.trim()
 }
 
+def envVar(name) {
+    def val = System.getenv(name)
+    return val == null ? "x" : val
+}
 
 def rawVersion = baseVersion + "-" + dateTime() + "-" + gitFromCliVersion()
 def nexus_url = 'https://nexus.ti8m.ch/content/repositories/channelbank-release/'
@@ -282,6 +287,16 @@ jooq {
             }
         }
     }
+}
+
+processResources {
+    filter ReplaceTokens, tokens: [
+        "project.version": project.version,
+        "BUILD_NUMBER"   : envVar("BUILD_NUMBER"),
+        "BUILD_ID"       : envVar("BUILD_ID"),
+        "GIT_COMMIT"     : envVar("GIT_COMMIT"),
+        "GIT_BRANCH"     : envVar("GIT_BRANCH")
+    ]
 }
 
 task('delete_h2_file')  {

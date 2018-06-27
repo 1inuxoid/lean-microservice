@@ -2,11 +2,13 @@ package ch.ti8m.channelsuite.eurekaclient
 
 import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.security.TokenTransportConfig
-import ch.ti8m.channelsuite.security.api.ContextTokenProvider
+import ch.ti8m.channelsuite.security.api.RequestInfo
+import ch.ti8m.channelsuite.security.api.RequestInfoImpl
 import ch.ti8m.channelsuite.security.api.SecurityTokenProperties
-import ch.ti8m.channelsuite.security.contextTokenProvider
-import ch.ti8m.channelsuite.security.rest.SimpleHttpUrlConnectionTokenAdder
+import ch.ti8m.channelsuite.security.api.UserInfoFactory
+import ch.ti8m.channelsuite.security.securityTemplate
 import ch.ti8m.channelsuite.security.tokenAdder
+import ch.ti8m.channelsuite.security.tokenSupportFactory
 import ch.ti8m.channelsuite.serviceregistry.client.DefaultServiceInstance
 import ch.ti8m.channelsuite.serviceregistry.client.ServiceRegistry
 import ch.ti8m.channelsuite.serviceregistry.client.SimpleServiceRegistryClient
@@ -21,14 +23,15 @@ import ch.ti8m.channelsuite.serviceregistry.client.schedule.FetchRegistryTask
 import ch.ti8m.channelsuite.serviceregistry.client.schedule.SendHeartbeatTask
 import ch.ti8m.channelsuite.serviceregistry.client.schedule.ServiceRegistryScheduler
 import ch.ti8m.channelsuite.serviceregistry.client.utils.SimpleUrlConnectionUtil
-import java.lang.Integer.parseInt
-import java.util.HashMap
-import kotlin.collections.ArrayList
+import org.slf4j.MDC
+import java.util.*
 
 /**
  * Defines the configuration of the Eureka client.
  */
 data class EurekaConfig(val client:Client, val instance: Instance)
+
+data class TechUserConfig(val id: String, val loginId: String, val roles: Set<String>, val tenant: String)
 
 data class Instance(val serviceName: String, val hostName: String, val port: Int,
                     val serviceContext: String = "",
@@ -49,8 +52,11 @@ data class Client(var preferSameZone: Boolean = true,
  *  * maintains a local copy of the central registry.
  *
  */
-class EurekaSchedulerWrapper(val config: EurekaConfig,
+class EurekaSchedulerWrapper(private val appName: String, val config: EurekaConfig, private val techUserConfig: TechUserConfig,
                              tokenConfig: SecurityTokenProperties, transportConfig: TokenTransportConfig) {
+
+    private val userInfoTokenConverter = tokenSupportFactory(tokenConfig).tokenConverter()
+    private val securityContextTemplate = securityTemplate(tokenConfig, appName)
 
     private val instanceId = with(config){ "${instance.hostName}:${instance.serviceName}:${instance.port}"}
 
@@ -68,8 +74,18 @@ class EurekaSchedulerWrapper(val config: EurekaConfig,
 
     private val registryEventCallback = NoOPRegistryEventCallback()
     private val serviceRegistry = ServiceRegistry(registryEventCallback)
-    private val fetchRegistryTask = FetchRegistryTask(eurekaRestClient, serviceRegistry, config.instance.serviceName)
-    private val sendHeartbeatTask = SendHeartbeatTask(eurekaRestClient, defaultServiceInstance, config.instance.serviceName)
+    private val fetchRegistryTask = object : FetchRegistryTask(eurekaRestClient, serviceRegistry, appName) {
+        override fun doExecute() {
+            setupTechUserContext()
+            super.doExecute()
+        }
+    }
+    private val sendHeartbeatTask = object : SendHeartbeatTask(eurekaRestClient, defaultServiceInstance, appName){
+        override fun doExecute() {
+            setupTechUserContext()
+            super.doExecute()
+        }
+    }
 
     private val registryScheduler = ServiceRegistryScheduler(defaultServiceInstance, fetchRegistryTask, sendHeartbeatTask, eurekaRestClient, config.client.heartbeatIntervalInMs, config.client.fetchRegistryIntervalInMs)
 
@@ -88,14 +104,34 @@ class EurekaSchedulerWrapper(val config: EurekaConfig,
 
     fun start() {
         if(this.config.client.enabled) {
+            setupTechUserContext()
             registryScheduler.start()
         }
     }
 
     fun stop() {
         if (this.config.client.enabled) {
+            setupTechUserContext()
             registryScheduler.shutdown()
         }
+    }
+
+    private fun setupTechUserContext() {
+        MDC.put("MODULE-ID", config.instance.serviceName)
+        val userInfo = UserInfoFactory.userInfoFor(techUserConfig.loginId, techUserConfig.id, techUserConfig.roles, techUserConfig.tenant)
+        val requestInfo = technicalCallRequestInfo()
+        val securityToken = userInfoTokenConverter.createTokenForUser(userInfo, requestInfo)
+
+        securityContextTemplate.setupSecurityContext(appName, userInfo, requestInfo, securityToken)
+    }
+
+    private fun technicalCallRequestInfo(): RequestInfo {
+        val requestIdForTechCall = "technical-background-proc-" + UUID.randomUUID()
+        val sessionIdForTechCall = RequestInfoImpl.EMPTY.frontSessionId
+
+        MDC.put("REQUEST-ID", requestIdForTechCall)
+        MDC.put("SESSION-ID", sessionIdForTechCall)
+        return RequestInfoImpl(sessionIdForTechCall, requestIdForTechCall)
     }
 }
 

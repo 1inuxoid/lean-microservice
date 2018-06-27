@@ -2,6 +2,7 @@ package ch.ti8m.channelsuite.kooby
 
 import ch.ti8m.channelsuite.eurekaclient.EurekaConfig
 import ch.ti8m.channelsuite.eurekaclient.EurekaSchedulerWrapper
+import ch.ti8m.channelsuite.eurekaclient.TechUserConfig
 import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.security.*
 import ch.ti8m.channelsuite.security.api.RequestSecurityContext
@@ -44,7 +45,7 @@ class ChannelsuiteSecurity : Jooby.Module {
 
             val token : Optional<String> = when(transportConfig.extractor.transport) {
                 Transport.header -> req.header(transportConfig.extractor.name).toOptional()
-                Transport.cookie -> req.cookies().find { it.name().equals(transportConfig.extractor.name) }?.value()
+                Transport.cookie -> req.cookies().find { it.name() == transportConfig.extractor.name }?.value()
                         ?: Optional.empty()
             }
 
@@ -118,12 +119,12 @@ class EurekaClient : Jooby.Module {
 
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
         val eurekaConfig = conf!!.extract<EurekaConfig>("channelsuite.eurekaConfig")
-
+        val techUserConfig = conf!!.extract<TechUserConfig>("channelsuite.security.technicalUser")
         val securityConfig = channelsuiteSecurityConfig(conf)
         val tokenConfig = securityTokenProperties(securityConfig)
         val transportConfig = adderExtractorConfig(securityConfig)
 
-        val eurekaScheduler = EurekaSchedulerWrapper(eurekaConfig , tokenConfig, transportConfig.adder)
+        val eurekaScheduler = EurekaSchedulerWrapper(conf.getString("application.name"), eurekaConfig, techUserConfig, tokenConfig, transportConfig.adder)
 
         env!!.onStart { _ ->
             startScheduler(eurekaScheduler)
@@ -137,7 +138,6 @@ class EurekaClient : Jooby.Module {
                 stopScheduler(eurekaScheduler)
             }
         })
-
 
         binder!!.bind(ServiceRegistryClient::class.java).toInstance(eurekaScheduler.registryClient)
     }
