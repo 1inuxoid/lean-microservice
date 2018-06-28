@@ -119,7 +119,7 @@ class EurekaClient : Jooby.Module {
 
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
         val eurekaConfig = conf!!.extract<EurekaConfig>("channelsuite.eurekaConfig")
-        val techUserConfig = conf!!.extract<TechUserConfig>("channelsuite.security.technicalUser")
+        val techUserConfig = conf.extract<TechUserConfig>("channelsuite.security.technicalUser")
         val securityConfig = channelsuiteSecurityConfig(conf)
         val tokenConfig = securityTokenProperties(securityConfig)
         val transportConfig = adderExtractorConfig(securityConfig)
