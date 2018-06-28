@@ -8,24 +8,17 @@ import ch.ti8m.channelsuite.kooby.*
 import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.xservice.jooq.Tables
 import ch.ti8m.channelsuite.xservice.jooq.tables.pojos.PortalUser
-import com.codahale.metrics.health.HealthCheck
-import com.codahale.metrics.health.HealthCheckRegistry
 import com.codahale.metrics.jvm.FileDescriptorRatioGauge
 import com.codahale.metrics.jvm.GarbageCollectorMetricSet
 import com.codahale.metrics.jvm.MemoryUsageGaugeSet
 import com.codahale.metrics.jvm.ThreadStatesGaugeSet
 import com.fasterxml.jackson.module.kotlin.KotlinModule
-import com.google.inject.Binder
-import com.google.inject.Inject
-import com.google.inject.Scopes
-import com.typesafe.config.Config
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jooby.*
 import org.jooby.Jooby.run
 import org.jooby.apitool.ApiTool
 import org.jooby.json.Jackson
-import org.jooby.metrics.MetricHandler
 import org.jooby.metrics.Metrics
 import org.jooq.DSLContext
 
@@ -58,7 +51,7 @@ class ServiceMain : Kooby({
         use(ApiTool().swagger("/apidocs").raml("/raml"))
     }
 
-    on(EnvMatcher.from("(dev|junit)"), Runnable {})
+    on(EnvMatcher.from("junit"), Runnable {})
             .orElse { _ ->
                 use(Metrics()
                         .request()
@@ -69,7 +62,7 @@ class ServiceMain : Kooby({
                         .metric("gc", GarbageCollectorMetricSet())
                         .metric("fs", FileDescriptorRatioGauge())
                 )
-                use(SpringActuatorLikeMetricsModule())
+                use(SpringActuatorAdapter())
             }
 
 
