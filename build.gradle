@@ -37,6 +37,7 @@ buildscript {
 }
 
 plugins {
+    id "war"
     id "org.jetbrains.kotlin.jvm" version "1.2.10"
     id 'org.liquibase.gradle' version '1.2.4'
     id 'nu.studer.jooq' version '2.0.9'
@@ -110,6 +111,8 @@ allprojects {
 }
 
 configurations {
+    // dependency config for running inside a servlet container.
+    servletContainer { transitive = false }
     cucumberRuntime {
         extendsFrom testRuntime
     }
@@ -211,6 +214,8 @@ dependencies {
 
     jooqRuntime "com.h2database:h2:$h2Version"
 
+    servletContainer "org.jooby:jooby-servlet:$joobyVersion"
+
     testCompile 'io.rest-assured:rest-assured:3.0.6'
     testCompile 'au.com.dius:pact-jvm-consumer-junit_2.12:3.5.11'
 }
@@ -218,8 +223,19 @@ dependencies {
 compileKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
+
 compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
+}
+
+task copyWebInf(type: Copy, group: "Build", description: "Copies the web.xml to the build dir for the war task to pick it up there") {
+    from zipTree(configurations.servletContainer.singleFile).matching {
+        include "WEB-INF/web.xml"
+    }
+    into "${buildDir}/webinf"
+    filter { String line ->
+        line.replace('${application.class}', "ch.ti8m.channelsuite.xservice.ServiceMain")
+    }
 }
 
 task getDeps(type: Copy) {
@@ -286,6 +302,17 @@ jooq {
                 packageName = 'ch.ti8m.channelsuite.xservice.jooq'
             }
         }
+    }
+}
+
+war {
+    dependsOn copyWebInf
+
+    archiveName = "hello-jooby.war"
+    classpath configurations.servletContainer, configurations.runtime
+
+    from("${buildDir}/webinf") {
+        include "WEB-INF/*"
     }
 }
 
