@@ -21,7 +21,11 @@ import org.jooq.TransactionListenerProvider
 import org.jooq.conf.RenderNameStyle
 import org.jooq.conf.Settings
 import org.jooq.impl.*
+import java.sql.DriverManager
+import java.sql.SQLException
 import javax.sql.DataSource
+
+
 
 /**
  *
@@ -49,7 +53,6 @@ private fun databaseConfig(conf: Config?): DatabaseConfig {
 /**
  * A Jooby module combining the Hikari connection pool and the Jooq DSL into a database
  * access layer.
- *
  */
 class ChannelsuitePersistence : Jooby.Module {
 
@@ -83,6 +86,36 @@ class ChannelsuitePersistence : Jooby.Module {
 
         binder.bind(DataSource::class.java).toInstance(hikariDataSource)
         binder.bind(DatabaseConfig::class.java).toInstance(dbConfig)
+
+        env?.onStop { _ ->
+            // First close any background tasks which may be using the DB -> can't do that in the library module
+            // Then close any DB connection pools
+            hikariDataSource.close()
+            // Now deregister JDBC drivers in this context's ClassLoader:
+            deregisterJdbcDrivers()
+        }
+    }
+
+    private fun deregisterJdbcDrivers() {
+        // Get the webapp's ClassLoader
+        val cl = Thread.currentThread().contextClassLoader
+        // Loop through all drivers
+        val drivers = DriverManager.getDrivers()
+        while (drivers.hasMoreElements()) {
+            val driver = drivers.nextElement()
+            if (driver.javaClass.getClassLoader() === cl) {
+                // This driver was registered by the webapp's ClassLoader, so deregister it:
+                try {
+                    logger.info("Deregistering JDBC driver {}", driver)
+                    DriverManager.deregisterDriver(driver)
+                } catch (ex: SQLException) {
+                    logger.error("Error deregistering JDBC driver {}", driver, ex)
+                }
+            } else {
+                // driver was not registered by the webapp's ClassLoader and may be in use elsewhere
+                logger.trace("Not deregistering JDBC driver {} as it does not belong to this webapp's ClassLoader", driver)
+            }
+        }
     }
 }
 

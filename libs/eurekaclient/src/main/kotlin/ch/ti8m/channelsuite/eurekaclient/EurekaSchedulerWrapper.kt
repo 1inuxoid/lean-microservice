@@ -76,14 +76,12 @@ class EurekaSchedulerWrapper(private val appName: String, val config: EurekaConf
     private val serviceRegistry = ServiceRegistry(registryEventCallback)
     private val fetchRegistryTask = object : FetchRegistryTask(eurekaRestClient, serviceRegistry, appName) {
         override fun doExecute() {
-            setupTechUserContext()
-            super.doExecute()
+            runInTechUserContext { super.doExecute() }
         }
     }
     private val sendHeartbeatTask = object : SendHeartbeatTask(eurekaRestClient, defaultServiceInstance, appName){
         override fun doExecute() {
-            setupTechUserContext()
-            super.doExecute()
+            runInTechUserContext { super.doExecute() }
         }
     }
 
@@ -104,16 +102,24 @@ class EurekaSchedulerWrapper(private val appName: String, val config: EurekaConf
 
     fun start() {
         if(this.config.client.enabled) {
-            setupTechUserContext()
-            registryScheduler.start()
+            runInTechUserContext { registryScheduler.start() }
         }
     }
 
     fun stop() {
         if (this.config.client.enabled) {
-            setupTechUserContext()
-            registryScheduler.shutdown()
+            runInTechUserContext { registryScheduler.shutdown() }
         }
+    }
+
+    private fun runInTechUserContext(someFunction: () -> Unit) {
+        setupTechUserContext()
+        someFunction()
+        teardownTechUserContext()
+    }
+
+    private fun teardownTechUserContext() {
+        securityContextTemplate.tearDownSecurityContext()
     }
 
     private fun setupTechUserContext() {
