@@ -246,15 +246,15 @@ class LiquibaseIntegration(private val changeLogFile: String = "db/changelog/mas
 object TransactionLogger : DefaultTransactionListener() {
     private val logger = object : LogFactory {}.classLogger()
     override fun beginStart(ctx: TransactionContext?) {
-        logger.info("starting transaction.")
+        logger.trace("starting transaction.")
     }
 
     override fun commitEnd(ctx: TransactionContext?) {
-        logger.info("committed transaction.")
+        logger.trace("committed transaction.")
     }
 
     override fun rollbackEnd(ctx: TransactionContext?) {
-        logger.info("rolled back transaction.")
+        logger.trace("rolled back transaction.")
     }
 }
 
