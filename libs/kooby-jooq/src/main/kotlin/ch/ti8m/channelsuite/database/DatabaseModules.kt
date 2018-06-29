@@ -133,11 +133,11 @@ class ChannelsuitePersistence : Jooby.Module {
     }
 
     private fun loadJdbcDriverIntoDriverManager(driverClassname: String) {
-        val driverClass: Class<Driver> = Class.forName(driverClassname) as Class<Driver>
+        val driverClass: Class<*> = Class.forName(driverClassname) as Class<*>
         val registeredDriver = DriverManager.getDrivers().asSequence().find { d -> d.javaClass.name == driverClassname }
         if (registeredDriver == null) {
             logger.info("Forcefully registering driver with the DriverManager as Class.forName() didn't do it.")
-            DriverManager.registerDriver(driverClass.newInstance())
+            DriverManager.registerDriver(driverClass.newInstance() as Driver?)
         }
     }
 
@@ -229,7 +229,7 @@ class H2EmbeddedServer : Jooby.Module {
 class LiquibaseIntegration(private val changeLogFile: String = "db/changelog/master.xml") : Jooby.Module {
 
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
-        if (conf!!.getBoolean(dbConfigPath + ".updateSchema")) {
+        if (conf!!.getBoolean("$dbConfigPath.updateSchema")) {
             env!!.onStart { registry ->
                 val connection = JdbcConnection(registry.require(DataSource::class.java).connection)
                 val liquibase = Liquibase(changeLogFile, ClassLoaderResourceAccessor(), connection)
