@@ -21,6 +21,7 @@ import org.jooq.TransactionListenerProvider
 import org.jooq.conf.RenderNameStyle
 import org.jooq.conf.Settings
 import org.jooq.impl.*
+import java.sql.Driver
 import java.sql.DriverManager
 import java.sql.SQLException
 import javax.sql.DataSource
@@ -37,7 +38,14 @@ val logger = object : LogFactory{}.packageLogger()
 /**
  * Defines the configuration for accessing a relational database.
  */
-val dbConfigPath = "channelsuite.databaseConfig"
+private const val dbConfigPath = "channelsuite.databaseConfig"
+
+private const val h2DriverClassname = "org.h2.Driver"
+private const val postgresqlDriverClassname = "org.postgresql.Driver"
+private const val oracleDriverClassname = "oracle.jdbc.OracleDriver"
+private const val mysqlDriverClassname = "com.mysql.jdbc.Driver"
+private const val mariadbDriverClassname = "org.mariadb.jdbc.Driver"
+
 data class DatabaseConfig(
         val jdbcUrl: String,
         val username: String,
@@ -57,9 +65,11 @@ private fun databaseConfig(conf: Config?): DatabaseConfig {
 class ChannelsuitePersistence : Jooby.Module {
 
     private fun dialect(jdbcUrl:String): SQLDialect = when {
-        jdbcUrl.contains("h2") -> SQLDialect.H2
-        jdbcUrl.contains("postgres") -> SQLDialect.POSTGRES
-        jdbcUrl.contains("oracle") ->
+        jdbcUrl.startsWith("jdbc:h2") -> SQLDialect.H2
+        jdbcUrl.startsWith("jdbc:postgres") -> SQLDialect.POSTGRES
+        jdbcUrl.startsWith("jdbc:mysql") -> SQLDialect.MYSQL
+        jdbcUrl.startsWith("jdbc:mariadb") -> SQLDialect.POSTGRES
+        jdbcUrl.startsWith("jdbc:oracle") ->
             if (jdbcUrl.toUpperCase().contains("XE")) SQLDialect.ORACLE11G else SQLDialect.ORACLE12C
         else -> SQLDialect.DEFAULT
     }
@@ -87,12 +97,47 @@ class ChannelsuitePersistence : Jooby.Module {
         binder.bind(DataSource::class.java).toInstance(hikariDataSource)
         binder.bind(DatabaseConfig::class.java).toInstance(dbConfig)
 
+        env?.onStart { _ ->
+            registerJdbcDrivers(conf)
+        }
+
         env?.onStop { _ ->
             // First close any background tasks which may be using the DB -> can't do that in the library module
             // Then close any DB connection pools
             hikariDataSource.close()
             // Now deregister JDBC drivers in this context's ClassLoader:
             deregisterJdbcDrivers()
+        }
+    }
+
+    // Gotcha! In some Servlet container configurations JDBC 4 drivers are not automatically loaded even with the
+    // containing JAR being present in the WAR. As per the Oracle Java documentation: "Any JDBC 4.0 drivers that are
+    // found in your class path are automatically loaded." Any component trying to establish a connection or creating a
+    // datasource would then get "java.sql.SQLException: No suitable driver".
+    // The workaround is to load the driver class explicitly so it can register itself with the DriverManager. They all
+    // have a class-level static {} block for that.
+    private fun registerJdbcDrivers(conf: Config?) {
+        val jdbcUrl = conf?.getString("channelsuite.databaseConfig.jdbcUrl")
+        if (jdbcUrl.isNullOrEmpty()) {
+            logger.info("Not registering JDBC drivers as no JDBC URL was configured.")
+        } else {
+            logger.info("Registering JDBC driver for '{}'.", jdbcUrl)
+            when {
+                jdbcUrl!!.startsWith("jdbc:h2") -> loadJdbcDriverIntoDriverManager(h2DriverClassname)
+                jdbcUrl.startsWith("jdbc:postgresql") -> loadJdbcDriverIntoDriverManager(postgresqlDriverClassname)
+                jdbcUrl.startsWith("jdbc:oracle:thin") -> loadJdbcDriverIntoDriverManager(oracleDriverClassname)
+                jdbcUrl.startsWith("jdbc:mysql") -> loadJdbcDriverIntoDriverManager(mysqlDriverClassname)
+                jdbcUrl.startsWith("jdbc:mariadb") -> loadJdbcDriverIntoDriverManager(mariadbDriverClassname)
+            }
+        }
+    }
+
+    private fun loadJdbcDriverIntoDriverManager(driverClassname: String) {
+        val driverClass: Class<Driver> = Class.forName(driverClassname) as Class<Driver>
+        val registeredDriver = DriverManager.getDrivers().asSequence().find { d -> d.javaClass.name == driverClassname }
+        if (registeredDriver == null) {
+            logger.info("Forcefully registering driver with the DriverManager as Class.forName() didn't do it.")
+            DriverManager.registerDriver(driverClass.newInstance())
         }
     }
 
@@ -103,18 +148,38 @@ class ChannelsuitePersistence : Jooby.Module {
         val drivers = DriverManager.getDrivers()
         while (drivers.hasMoreElements()) {
             val driver = drivers.nextElement()
-            if (driver.javaClass.getClassLoader() === cl) {
+            if (driver.javaClass.classLoader === cl) {
                 // This driver was registered by the webapp's ClassLoader, so deregister it:
                 try {
-                    logger.info("Deregistering JDBC driver {}", driver)
-                    DriverManager.deregisterDriver(driver)
+                    logger.info("Deregistering JDBC driver {}.", driver)
+                    deregisterJdbcDriver(driver)
                 } catch (ex: SQLException) {
-                    logger.error("Error deregistering JDBC driver {}", driver, ex)
+                    logger.error("Error deregistering JDBC driver {}.", driver, ex)
                 }
             } else {
                 // driver was not registered by the webapp's ClassLoader and may be in use elsewhere
-                logger.trace("Not deregistering JDBC driver {} as it does not belong to this webapp's ClassLoader", driver)
+                logger.trace("Not deregistering JDBC driver {} as it does not belong to this webapp's ClassLoader.", driver)
             }
+        }
+    }
+
+    private fun deregisterJdbcDriver(driver: Driver) {
+        // Some drivers can't just be deregistered with the DriverManager because they maintain internal state:
+        // https://github.com/spring-projects/spring-boot/issues/2612#issuecomment-401264199
+        when (driver.javaClass.name) {
+            h2DriverClassname -> callStaticDeregisterMethod(driver.javaClass, "unload")
+            postgresqlDriverClassname -> callStaticDeregisterMethod(driver.javaClass, "deregister")
+            else -> DriverManager.deregisterDriver(driver)
+        }
+    }
+
+    private fun callStaticDeregisterMethod(driverClass: Class<Driver>, methodName: String) {
+        try {
+            logger.info("Calling specific deregister method '{}' for driver.", methodName)
+            val deregisterMethod = driverClass.getDeclaredMethod(methodName)
+            deregisterMethod.invoke(driverClass)
+        } catch (ex: Exception) {
+            logger.warn("Failed to deregister specific JDBC driver.", ex)
         }
     }
 }
