@@ -51,10 +51,11 @@ data class DatabaseConfig(
         val username: String,
         val password: String,
         val checkStatement: String,
-        val optimisticLocking: Boolean? = false
+        val optimisticLocking: Boolean? = false,
+        val updateSchema: Boolean? = false
 )
 
-private fun databaseConfig(conf: Config?): DatabaseConfig {
+fun extractDbConfigFrom(conf: Config?): DatabaseConfig {
     return conf!!.extract(dbConfigPath)
 }
 
@@ -75,7 +76,7 @@ class ChannelsuitePersistence : Jooby.Module {
     }
 
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
-        val dbConfig = databaseConfig(conf)
+        val dbConfig = extractDbConfigFrom(conf)
 
         val hikariDataSource = HikariDataSource()
         with(hikariDataSource) {
@@ -117,7 +118,7 @@ class ChannelsuitePersistence : Jooby.Module {
     // The workaround is to load the driver class explicitly so it can register itself with the DriverManager. They all
     // have a class-level static {} block for that.
     private fun registerJdbcDrivers(conf: Config?) {
-        val jdbcUrl = conf?.getString("channelsuite.databaseConfig.jdbcUrl")
+        val jdbcUrl = extractDbConfigFrom(conf).jdbcUrl
         if (jdbcUrl.isNullOrEmpty()) {
             logger.info("Not registering JDBC drivers as no JDBC URL was configured.")
         } else {
@@ -207,7 +208,7 @@ class PersistenceHealthCheck
 class H2EmbeddedServer : Jooby.Module {
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
         // TODO: allow using custom db parameters (url / user)
-        val port = conf!!.getInt("channelsuite.databaseConfig.h2-embedded-port")
+        val port = conf!!.getInt("$dbConfigPath.h2-embedded-port")
         val webServer = Server.createWebServer(
                 "-webAllowOthers", "-webPort", port.toString())
 
@@ -229,7 +230,7 @@ class H2EmbeddedServer : Jooby.Module {
 class LiquibaseIntegration(private val changeLogFile: String = "db/changelog/master.xml") : Jooby.Module {
 
     override fun configure(env: Env?, conf: Config?, binder: Binder?) {
-        if (conf!!.getBoolean("$dbConfigPath.updateSchema")) {
+        if (extractDbConfigFrom(conf).updateSchema!!) {
             env!!.onStart { registry ->
                 val connection = JdbcConnection(registry.require(DataSource::class.java).connection)
                 val liquibase = Liquibase(changeLogFile, ClassLoaderResourceAccessor(), connection)

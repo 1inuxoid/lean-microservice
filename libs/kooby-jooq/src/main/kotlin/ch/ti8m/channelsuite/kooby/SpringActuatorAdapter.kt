@@ -1,5 +1,6 @@
 package ch.ti8m.channelsuite.kooby
 
+import ch.ti8m.channelsuite.database.extractDbConfigFrom
 import com.codahale.metrics.health.HealthCheck
 import com.codahale.metrics.health.HealthCheckRegistry
 import com.fasterxml.jackson.annotation.JsonIgnore
@@ -42,10 +43,10 @@ private open class ActuatorHealthCheckResult(val detailedResult: HealthCheck.Res
 private class ActuatorDbHealthCheckResult(detailedResult: HealthCheck.Result, @JsonIgnore val config: Config) : ActuatorHealthCheckResult(detailedResult) {
 
     fun getDatabase(): String? {
-        val jdbcUrl = config.getString("channelsuite.databaseConfig.jdbcUrl")
+        val jdbcUrl = extractDbConfigFrom(config).jdbcUrl
         return if (StringUtils.isEmpty(jdbcUrl)) "n/a" else jdbcUrl.split(":")[1]
     }
-    fun getCheckStatement() = config.getString("channelsuite.databaseConfig.checkStatement")
+    fun getCheckStatement() = extractDbConfigFrom(config).checkStatement
 }
 private class ActuatorDiskSpaceHealthCheckResult(detailedResult: HealthCheck.Result) : ActuatorHealthCheckResult(detailedResult) {
     private val file = File("/")
