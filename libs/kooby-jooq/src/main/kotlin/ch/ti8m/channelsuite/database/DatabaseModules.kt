@@ -106,8 +106,16 @@ class ChannelsuitePersistence : Jooby.Module {
             // First close any background tasks which may be using the DB -> can't do that in the library module
             // Then close any DB connection pools
             hikariDataSource.close()
-            // Now deregister JDBC drivers in this context's ClassLoader:
-            deregisterJdbcDrivers()
+            // Now deregister JDBC drivers in this context's ClassLoader
+            // It's a well meaning measure that can terribly backfire in a unit- or integration-test environment. It
+            // may be that several tests within the same JVM will start and stop containers randomly (parallel
+            // execution). In that case you'll have several threads registering and deregistering drivers *for the
+            // whole JVM*. So, a test may find itself without an available driver even though it registered it just
+            // moments ago on startup. Skipping deregistration and thereby creating potential classloader leaks is the
+            // lesser of two evils.
+            if (env.name() != "junit") {
+                deregisterJdbcDrivers()
+            }
         }
     }
 
@@ -119,12 +127,12 @@ class ChannelsuitePersistence : Jooby.Module {
     // have a class-level static {} block for that.
     private fun registerJdbcDrivers(conf: Config?) {
         val jdbcUrl = extractDbConfigFrom(conf).jdbcUrl
-        if (jdbcUrl.isNullOrEmpty()) {
+        if (jdbcUrl.isEmpty()) {
             logger.info("Not registering JDBC drivers as no JDBC URL was configured.")
         } else {
             logger.info("Registering JDBC driver for '{}'.", jdbcUrl)
             when {
-                jdbcUrl!!.startsWith("jdbc:h2") -> loadJdbcDriverIntoDriverManager(h2DriverClassname)
+                jdbcUrl.startsWith("jdbc:h2") -> loadJdbcDriverIntoDriverManager(h2DriverClassname)
                 jdbcUrl.startsWith("jdbc:postgresql") -> loadJdbcDriverIntoDriverManager(postgresqlDriverClassname)
                 jdbcUrl.startsWith("jdbc:oracle:thin") -> loadJdbcDriverIntoDriverManager(oracleDriverClassname)
                 jdbcUrl.startsWith("jdbc:mysql") -> loadJdbcDriverIntoDriverManager(mysqlDriverClassname)
