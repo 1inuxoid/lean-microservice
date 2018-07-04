@@ -145,7 +145,7 @@ class NoOPRegistryEventCallback : RegistryEventCallback {
     private val logger = object : LogFactory {}.classLogger()
 
     override fun serviceRegistryUpdate(availableServices: MutableList<String>?) {
-        logger.info("serviceRegistryUpdate triggered")
+        logger.debug("serviceRegistryUpdate triggered")
     }
 
 }
