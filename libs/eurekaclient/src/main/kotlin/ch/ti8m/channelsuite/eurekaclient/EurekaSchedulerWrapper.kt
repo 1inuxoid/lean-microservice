@@ -22,28 +22,31 @@ import ch.ti8m.channelsuite.serviceregistry.client.eureka.EurekaServiceURLProvid
 import ch.ti8m.channelsuite.serviceregistry.client.schedule.FetchRegistryTask
 import ch.ti8m.channelsuite.serviceregistry.client.schedule.SendHeartbeatTask
 import ch.ti8m.channelsuite.serviceregistry.client.schedule.ServiceRegistryScheduler
+import ch.ti8m.channelsuite.serviceregistry.client.utils.HostNameUtil
 import ch.ti8m.channelsuite.serviceregistry.client.utils.SimpleUrlConnectionUtil
 import org.slf4j.MDC
+import java.net.UnknownHostException
 import java.util.*
 
 /**
  * Defines the configuration of the Eureka client.
  */
-data class EurekaConfig(val client:Client, val instance: Instance)
+data class EurekaConfig(val client: Client, val instance: Instance)
 
 data class TechUserConfig(val id: String, val loginId: String, val roles: Set<String>, val tenant: String)
 
-data class Instance(val serviceName: String, val hostName: String, val port: Int = 8080,
+data class Instance(val serviceName: String, val hostName: String?, val port: Int = 8080,
                     val serviceContext: String = "",
                     val zone: String,
                     val metadata: Map<String, String>)
 
 data class Client(var preferSameZone: Boolean = true,
                   var serviceRegistryUrl: Map<String, List<String>>,
-                  var heartbeatIntervalInMs: Int ,
+                  var heartbeatIntervalInMs: Int,
                   var fetchRegistryIntervalInMs: Int,
                   var enabled: Boolean = true
 )
+
 /**
  * Wraps the active component (the scheduler) in the Eureka client library.
  * The scheduler
@@ -58,8 +61,6 @@ class EurekaSchedulerWrapper(private val appName: String, val config: EurekaConf
     private val userInfoTokenConverter = tokenSupportFactory(tokenConfig).tokenConverter()
     private val securityContextTemplate = securityTemplate(tokenConfig, appName)
 
-    private val instanceId = with(config){ "${instance.hostName}:${instance.serviceName}:${instance.port}"}
-
     private val defaultServiceInstance = createDefaultInstance()
     private val eurekaServiceURLProvider = createEurekaServiceURLProvider()
 
@@ -70,7 +71,7 @@ class EurekaSchedulerWrapper(private val appName: String, val config: EurekaConf
 
     //TODO wire in jooby/dropwizard health-checks here.
     private val eurekaRestClient = EurekaRestClient(eurekaServiceURLProvider,
-            SimpleUrlConnectionUtil(tokenAdder(tokenConfig, transportConfig), 10000, 10000 ))
+            SimpleUrlConnectionUtil(tokenAdder(tokenConfig, transportConfig), 10000, 10000))
 
     private val registryEventCallback = NoOPRegistryEventCallback()
     private val serviceRegistry = ServiceRegistry(registryEventCallback)
@@ -79,7 +80,7 @@ class EurekaSchedulerWrapper(private val appName: String, val config: EurekaConf
             runInTechUserContext { super.doExecute() }
         }
     }
-    private val sendHeartbeatTask = object : SendHeartbeatTask(eurekaRestClient, defaultServiceInstance, appName){
+    private val sendHeartbeatTask = object : SendHeartbeatTask(eurekaRestClient, defaultServiceInstance, appName) {
         override fun doExecute() {
             runInTechUserContext { super.doExecute() }
         }
@@ -87,21 +88,24 @@ class EurekaSchedulerWrapper(private val appName: String, val config: EurekaConf
 
     private val registryScheduler = ServiceRegistryScheduler(defaultServiceInstance, fetchRegistryTask, sendHeartbeatTask, eurekaRestClient, config.client.heartbeatIntervalInMs, config.client.fetchRegistryIntervalInMs)
 
-    val registryClient = if (config.instance.zone == ServiceRegistryClientConstants.DEFAULT_ZONE )
-                            SimpleServiceRegistryClient(serviceRegistry)
-                         else
-                            ZoneAwareServiceRegistryClient(serviceRegistry, config.instance.zone)
+    val registryClient = if (config.instance.zone == ServiceRegistryClientConstants.DEFAULT_ZONE)
+        SimpleServiceRegistryClient(serviceRegistry)
+    else
+        ZoneAwareServiceRegistryClient(serviceRegistry, config.instance.zone)
 
     private fun createDefaultInstance(): ServiceInstance {
-        return with(config.instance){
-            DefaultServiceInstance(instanceId, serviceName,  hostName,
+        val hostname = discoverHostName(false)
+        return with(config.instance) {
+            val instanceId = with(config) { "$hostname:${instance.serviceName}:${instance.port}" }
+
+            DefaultServiceInstance(instanceId, serviceName, hostname,
                     port, false, UP,
-                    serviceContext,  metadata.map { it.key to it.value }.toMap(), hostName, ArrayList())
+                    serviceContext, metadata.map { it.key to it.value }.toMap(), hostname, ArrayList())
         }
     }
 
     fun start() {
-        if(this.config.client.enabled) {
+        if (this.config.client.enabled) {
             runInTechUserContext { registryScheduler.start() }
         }
     }
@@ -139,13 +143,24 @@ class EurekaSchedulerWrapper(private val appName: String, val config: EurekaConf
         MDC.put("SESSION-ID", sessionIdForTechCall)
         return RequestInfoImpl(sessionIdForTechCall, requestIdForTechCall)
     }
-}
 
-class NoOPRegistryEventCallback : RegistryEventCallback {
-    private val logger = object : LogFactory {}.classLogger()
-
-    override fun serviceRegistryUpdate(availableServices: MutableList<String>?) {
-        logger.debug("serviceRegistryUpdate triggered")
+    private fun discoverHostName(isPreferIpAddress: Boolean): String {
+        return config.instance.hostName ?: return try {
+            if (isPreferIpAddress) {
+                HostNameUtil.getLocalHostAddress()
+            } else {
+                HostNameUtil.getLocalHostName(2)
+            }
+        } catch (e: UnknownHostException) {
+            "localhost"
+        }
     }
-
 }
+    class NoOPRegistryEventCallback : RegistryEventCallback {
+        private val logger = object : LogFactory {}.classLogger()
+
+        override fun serviceRegistryUpdate(availableServices: MutableList<String>?) {
+            logger.debug("serviceRegistryUpdate triggered")
+        }
+
+    }
