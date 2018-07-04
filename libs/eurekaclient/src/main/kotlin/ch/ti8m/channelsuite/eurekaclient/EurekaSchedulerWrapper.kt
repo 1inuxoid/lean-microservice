@@ -33,7 +33,7 @@ data class EurekaConfig(val client:Client, val instance: Instance)
 
 data class TechUserConfig(val id: String, val loginId: String, val roles: Set<String>, val tenant: String)
 
-data class Instance(val serviceName: String, val hostName: String, val port: Int,
+data class Instance(val serviceName: String, val hostName: String, val port: Int = 8080,
                     val serviceContext: String = "",
                     val zone: String,
                     val metadata: Map<String, String>)
