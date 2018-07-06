@@ -145,15 +145,19 @@ class EurekaSchedulerWrapper(private val appName: String, val config: EurekaConf
     }
 
     private fun discoverHostName(isPreferIpAddress: Boolean): String {
-        return config.instance.hostName ?: return try {
-            if (isPreferIpAddress) {
-                HostNameUtil.getLocalHostAddress()
-            } else {
-                HostNameUtil.getLocalHostName(2)
+        var hostname = config.instance.hostName
+        if (hostname.isNullOrBlank()) {
+            hostname = try {
+                if (isPreferIpAddress) {
+                    HostNameUtil.getLocalHostAddress()
+                } else {
+                    HostNameUtil.getLocalHostName(2)
+                }
+            } catch (e: UnknownHostException) {
+                "localhost"
             }
-        } catch (e: UnknownHostException) {
-            "localhost"
         }
+        return hostname!!
     }
 }
     class NoOPRegistryEventCallback : RegistryEventCallback {
