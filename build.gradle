@@ -9,7 +9,7 @@ buildscript {
         jooqVersion = "3.10.7"
         h2Version = "1.4.196"
         dokka_version = "0.9.14"
-        security_version = "6.0.0-20180703221624-44e7648"
+        security_version = "6.0.0-20180709123222-78892d2"
         eurekaclient_version = "3.0.0-20180627120605-73c7b32"
         cucumber_version = "2.3.1"
     }
