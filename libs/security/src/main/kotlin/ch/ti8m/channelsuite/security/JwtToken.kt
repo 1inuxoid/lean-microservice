@@ -1,11 +1,8 @@
 package ch.ti8m.channelsuite.security.jwt
 
-import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.security.TokenSupportFactory
 import ch.ti8m.channelsuite.security.api.SecurityTokenProperties
-import ch.ti8m.channelsuite.security.api.TokenMarshaller
 import ch.ti8m.channelsuite.security.api.TokenValidator
-import ch.ti8m.channelsuite.security.api.UserInfoTokenConverter
 
 /**
  * Wires up and configures support for jwt tokens as means of transporting user identity

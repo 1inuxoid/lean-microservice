@@ -4,6 +4,8 @@ import ch.ti8m.channelsuite.database.ChannelsuitePersistence
 import ch.ti8m.channelsuite.database.H2EmbeddedServer
 import ch.ti8m.channelsuite.database.LiquibaseIntegration
 import ch.ti8m.channelsuite.database.PersistenceHealthCheck
+import ch.ti8m.channelsuite.errorhandler.GeneralErrorConverter
+import ch.ti8m.channelsuite.errorhandler.RouteExceptionInterceptor
 import ch.ti8m.channelsuite.kooby.*
 import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.xservice.jooq.Tables
@@ -38,6 +40,7 @@ class ServiceMain : Kooby({
     use(ChannelsuitePersistence())
     use(LiquibaseIntegration())
     use(Jackson().doWith { it.registerModule(KotlinModule()) })
+    use(RouteExceptionInterceptor())
 
     val security = ChannelsuiteSecurity()
     use(security)
@@ -94,7 +97,7 @@ class ServiceMain : Kooby({
          * get a list of all users
          */
         get {
-            val dslContext = require(DSLContext::class)
+            val dslContext = require(DSLContext::class.java)
             dslContext.select().from(Tables.PORTAL_USER).map { it.into(PortalUser::class.java) }
         }
 

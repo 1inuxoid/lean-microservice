@@ -1,8 +1,6 @@
 package ch.ti8m.channelsuite.security.saml
 
-import ch.ti8m.channelsuite.log.LogFactory
 import ch.ti8m.channelsuite.security.TokenSupportFactory
-import ch.ti8m.channelsuite.security.api.SecurityToken
 import ch.ti8m.channelsuite.security.api.SecurityTokenProperties
 import ch.ti8m.channelsuite.security.api.TokenValidator
 import ch.ti8m.channelsuite.security.keystore
