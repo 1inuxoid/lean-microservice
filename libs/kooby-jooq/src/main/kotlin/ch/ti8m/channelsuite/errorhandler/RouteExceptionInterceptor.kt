@@ -19,13 +19,15 @@ class RouteExceptionInterceptor : Jooby.Module {
         with(env!!.router()) {
 
             err(IllegalArgumentException::class.java) { request, response, error ->
-                response.error(request.require(GeneralErrorConverter::class.java).convertToCsErrorModel(error, ErrorType.ILLEGAL_DATA), BAD_REQUEST)
+                // Gotcha! This might produce unexpected results - then when the IAE bubbles up from lower layers (e.g.
+                // persistence) in which case HTTP 500 would be more appropriate
+                response.error(getConverter(request).convertToCsErrorModel(error, ErrorType.ILLEGAL_DATA), BAD_REQUEST)
             }
 
             err(ClientErrorException::class.java) { request, response, error ->
                 if (error.cause != null && error.cause is ClientErrorException) {
                     val clientErrorException = error.cause as ClientErrorException
-                    val clientError: ClientError = request.require(GeneralErrorConverter::class.java).convertToCsErrorModel(clientErrorException, clientErrorException.errorType)
+                    val clientError: ClientError = getConverter(request).convertToCsErrorModel(clientErrorException, clientErrorException.errorType)
 
                     clientError.argumentsRejected = extractViolations(clientErrorException, clientError.code)
 
@@ -35,7 +37,7 @@ class RouteExceptionInterceptor : Jooby.Module {
                     response.error(clientError, BAD_REQUEST)
 
                 } else {
-                    response.error(request.require(GeneralErrorConverter::class.java).convertToCsErrorModel(error), BAD_REQUEST)
+                    response.error(getConverter(request).convertToCsErrorModel(error), BAD_REQUEST)
                 }
             }
 
@@ -52,18 +54,23 @@ class RouteExceptionInterceptor : Jooby.Module {
             }
 
             err(RuntimeException::class.java) { request, response, error ->
-                response.error(request.require(GeneralErrorConverter::class.java).convertToCsErrorModel(error), Status.SERVER_ERROR)
+                // we trust that Jooby assigns meaningful status codes (it normally does) rather than blindly setting
+                // status 500
+                val status = Status.valueOf(error.statusCode())
+                response.error(getConverter(request).convertToCsErrorModel(error), status)
             }
         }
     }
 
     private fun handleServerError(request: Request, response: Response, error: Err) =
-            response.error(request.require(GeneralErrorConverter::class.java).convertToCsErrorModel(error), Status.valueOf(error.statusCode()))
+            response.error(getConverter(request).convertToCsErrorModel(error), Status.valueOf(error.statusCode()))
 
     private fun handleClientError(request: Request, response: Response, error: Err) {
-        val clientError: ClientError = request.require(GeneralErrorConverter::class.java).convertToCsErrorModel(error, ErrorType.CLIENT_ERROR)
+        val clientError: ClientError = getConverter(request).convertToCsErrorModel(error, ErrorType.CLIENT_ERROR)
         response.error(clientError, Status.valueOf(error.statusCode()))
     }
+
+    private fun getConverter(request: Request) = request.require(GeneralErrorConverter::class.java)
 
     private fun extractViolations(clientErrorException: ClientErrorException, errorCode: ErrorCode) =
             clientErrorException.violations.entries.map { it -> ArgumentIdentifier(it.key, errorCode.code, it.value) }.toList()
@@ -71,6 +78,7 @@ class RouteExceptionInterceptor : Jooby.Module {
 }
 
 private fun Response.error(e: GeneralError, status: Status) {
-    logger.warn("Exception of code ${e.code.code} for service ${e.code.serviceId} - treating as http status ${status.value()}")
+    logger.warn("Exception of code ${e.code.code} for service ${e.code.serviceId} - " +
+        "treating as http status ${status.value()}")
     send(Results.json(e).status(status))
 }
