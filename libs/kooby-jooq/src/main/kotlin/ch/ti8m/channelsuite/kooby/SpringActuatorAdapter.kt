@@ -33,28 +33,6 @@ class SpringActuatorAdapter : Jooby.Module {
     }
 }
 
-/**
- * Adapts the dropwizard health result to what is delivered by a Spring Boot actuator health check. Unfortunately, the
- * old dropwizard metrics Result class is not extendable. Earlier versions fix this but Jooby should upgrade that first.
- */
-private open class ActuatorHealthCheckResult(val detailedResult: HealthCheck.Result) {
-    fun getStatus() = if (detailedResult.isHealthy) "UP" else "DOWN"
-}
-private class ActuatorDbHealthCheckResult(detailedResult: HealthCheck.Result, @JsonIgnore val config: Config) : ActuatorHealthCheckResult(detailedResult) {
-
-    fun getDatabase(): String? {
-        val jdbcUrl = extractDbConfigFrom(config).jdbcUrl
-        return if (StringUtils.isEmpty(jdbcUrl)) "n/a" else jdbcUrl.split(":")[1]
-    }
-    fun getCheckStatement() = extractDbConfigFrom(config).checkStatement
-}
-private class ActuatorDiskSpaceHealthCheckResult(detailedResult: HealthCheck.Result) : ActuatorHealthCheckResult(detailedResult) {
-    private val file = File("/")
-    // contrary to the memory values (see ActuatorMetricsHandler) this has to be in bytes rather than KB
-    fun getTotal() = file.totalSpace
-    fun getFree() = file.freeSpace
-}
-
 class ActuatorHealthAggregator
 @Inject constructor(private val healthCheckRegistry: HealthCheckRegistry, private val config: Config) {
     private fun status(isHealthy: Boolean) = if (isHealthy) "UP" else "DOWN"
@@ -77,6 +55,27 @@ class ActuatorHealthAggregator
             else -> Pair(result.key, ActuatorHealthCheckResult(result.value))
         }
     }
+}
+
+private class ActuatorDbHealthCheckResult(detailedResult: HealthCheck.Result, @JsonIgnore val config: Config) : ActuatorHealthCheckResult(detailedResult) {
+    fun getDatabase(): String? {
+        val jdbcUrl = extractDbConfigFrom(config).jdbcUrl
+        return if (StringUtils.isEmpty(jdbcUrl)) "n/a" else jdbcUrl.split(":")[1]
+    }
+    fun getCheckStatement() = extractDbConfigFrom(config).checkStatement
+}
+private class ActuatorDiskSpaceHealthCheckResult(detailedResult: HealthCheck.Result) : ActuatorHealthCheckResult(detailedResult) {
+    private val file = File("/")
+    // contrary to the memory values (see ActuatorMetricsHandler) this has to be in bytes rather than KB
+    fun getTotal() = file.totalSpace
+    fun getFree() = file.freeSpace
+}
+/**
+ * Adapts the Dropwizard health result to what is delivered by a Spring Boot actuator health check. HealthCheck.Result
+ * would basically be extendable but composition feels cleaner than inheritance in this case.
+ */
+private open class ActuatorHealthCheckResult(val result: HealthCheck.Result) {
+    fun getStatus() = if (result.isHealthy) "UP" else "DOWN"
 }
 
 // Additional logic for CPU usage "inspired" by https://github.com/micrometer-metrics/micrometer/
