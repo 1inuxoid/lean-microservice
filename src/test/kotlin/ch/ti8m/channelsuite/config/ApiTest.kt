@@ -1,11 +1,11 @@
 package ch.ti8m.channelsuite.config
 
+import ch.ti8m.channelsuite.ServiceBaseIT
 import ch.ti8m.channelsuite.security.TokenHeader
 import ch.ti8m.channelsuite.security.TokenHeaderProvider
 import ch.ti8m.channelsuite.security.api.RequestInfoImpl
 import ch.ti8m.channelsuite.security.api.SecurityContextTemplate
 import ch.ti8m.channelsuite.security.api.UserInfoFactory
-import ch.ti8m.channelsuite.xservice.ServiceMain
 import ch.ti8m.channelsuite.xservice.UserCreationRequest
 import cucumber.api.java.After
 import cucumber.api.java.Before
@@ -20,26 +20,20 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import java.util.*
 
 /**
  * Sample for an integration test.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class ApiTest  {
-    val app = ServiceMain()
-
-    @Before
-    @BeforeAll fun startService() {app.start("server.join=false", "junit")}
-
-    @After
-    @AfterAll fun stopService() {app.stop()}
-
-    val user = UserCreationRequest("hugo", "Hugo", "Hurtig")
-    val userNotCreated = UserCreationRequest("claus", "Claus", "Tralala")
+class ApiTest : ServiceBaseIT() {
+    private val user = UserCreationRequest("hugo", "Hugo", "Hurtig")
+    private val userNotCreated = UserCreationRequest("claus", "Claus", "Tralala")
 
     lateinit var authHeaderForAdmin: Header
     lateinit var authHeaderForUnauthorisedUser: Header
 
+    private fun ClosedRange<Int>.randomPort() = Random().nextInt(endInclusive - start) + start
 
     @Given("^a logged in and permitted user$")
     fun setupAdmin() {
@@ -67,24 +61,23 @@ class ApiTest  {
         // given
         setupUnauthorizedUser()
 
-
         given()
-                .body(userNotCreated).contentType("application/json")
-                .header(authHeaderForUnauthorisedUser)
-                .`when`()
-                .post("/users").
-                then()
-                .statusCode(403)
+            .body(userNotCreated).contentType("application/json")
+            .header(authHeaderForUnauthorisedUser)
+        .`when`()
+            .post("/users")
+        .then()
+            .statusCode(403)
     }
 
     @Test
     fun posting_anonymously_results_in_401() {
         given()
-                .body(userNotCreated).contentType("application/json")
-                .`when`()
-                .post("/users").
-                then()
-                .statusCode(401)
+            .body(userNotCreated).contentType("application/json")
+        .`when`()
+            .post("/users")
+        .then()
+            .statusCode(401)
     }
 
     @When("^he adds a new user$")
@@ -92,36 +85,39 @@ class ApiTest  {
         setupAdmin()
 
         given()
-                .body(user).contentType("application/json")
-                .header(authHeaderForAdmin)
-                .`when`()
-                .post("/users").
-                then()
-                .statusCode(201)
+            .body(user).contentType("application/json")
+            .header(authHeaderForAdmin)
+        .`when`()
+            .post("/users")
+        .then()
+            .statusCode(201)
     }
 
     @Then("^the new user is not there$")
     fun check_claus_user_not_created() {
-        `when`().get("/users")
-                .then()
-                .statusCode(200)
-                .body(not(hasItem(userNotCreated)))
+        `when`()
+            .get("/users")
+        .then()
+            .statusCode(200)
+            .body(not(hasItem(userNotCreated)))
     }
 
     @Then("^he will receive a list of users$")
     fun posted_users_can_be_retrieved() {
-        `when`().get("/users")
-                .then()
-                .statusCode(200)
-                .body("[0].username", equalTo("hugo"))
+        `when`()
+            .get("/users")
+        .then()
+            .statusCode(200)
+            .body("[0].username", equalTo("hugo"))
     }
 
     @Then("^he can be received by id$")
     fun posted_users_can_be_retrieved_by_id() {
-        `when`().get("/users/1")
-                .then()
-                .statusCode(200)
-                .body("username", equalTo("hugo"))
+        `when`()
+            .get("/users/1")
+        .then()
+            .statusCode(200)
+            .body("username", equalTo("hugo"))
     }
 
     private fun tokenHeader(loginId: String, userId: String, vararg roles: String): Header {
@@ -135,4 +131,14 @@ class ApiTest  {
         }
         return Header(token.name, token.token)
     }
+
+    @Before
+    @BeforeAll
+    fun before() {
+        startService()
+    }
+
+    @After
+    @AfterAll
+    fun after() {stopService()}
 }
