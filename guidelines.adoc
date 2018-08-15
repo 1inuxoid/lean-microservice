@@ -1,0 +1,71 @@
+= Channel Suite Lean Microservice Stack Guidelines
+
+A collection of of well-meaning advice on how to work with the lean microservice stack.
+
+* image:https://cdn.teamextension.it/dist/img/skills/kotlin.png["Kotlin logo", width=48] https://kotlinlang.org[Kotlin]
+* image:https://pbs.twimg.com/profile_images/666640153788686336/jj959OZZ_400x400.png["Jooby logo", width=48] https://jooby.org[Jooby]
+* image:https://www.javacodegeeks.com/wp-content/uploads/2014/02/jooq-2-logo.png["jOOQ logo", width=48] https://jooq.org[jOOQ]
+* https://github.com/google/guice[Google Guice]
+
+We are still getting acquainted with the new stack and a lot of things are not set in stone yet. This document should
+grow and evolve evolutionarily. The intention is to only document what has proven to be working (or not) in reality.
+Hence, we/you write code, assess how it turns out, discuss with colleagues if you should do it differently and then
+eventually the product team can document a recommended approach. Tear down those ivory towers, will you!
+
+:toc:
+
+== General
+
+Everything you ever learned about clean code and clean design still applies! If you want to do DDD then do DDD - just
+on the lean stack.
+
+=== Project structure, artifacts
+
+* Write the _API resource_ classes manually in Kotlin; as immutable data classes. Generating from the service contract
+with some Swagger/OpenAPI generator means blowing up `build.gradle` - and getting Java rather than Kotlin code.
+Creating Kotlin data classes on the other hand is super quick and the (automatic) contract validation, more on that
+later, ensures correctness of the code. Furthermore, those resources should mostly be POKOs.
+* It's ok to generate other classes from contracts you depend upon.
+* Put them into the `ch.ti8m.channelsuite.<module>.resources` package.
+* Write dedicated entities if necessary and convert between the entities and resources.
+* WARNING be very careful which representation of an object you use on which layer! It's quite likely that you will have
+at least three representations of the same object:
+  - API resource
+  - entity
+  - jOOQ record
+ -> returning the jOOQ record inside the route for example is not ok
+
+=== Contract validation
+
+In order to validate that your module (its routes and resources)
+https://channelsuite.ti8m.ch/docu/modules/service-contracts/latest/#add-validating-unit-test[fulfill the service contract]
+a `SwaggerValidationIT` was generated. It will start the application on a random port and have the
+https://jooby.org/doc/apitool/[Jooby ApiTool module] reverse engineer an OpenAPI contract from the implementation (what
+Springfox does in the vintage world). The ApiTool is a fairly new module and its support for Kotlin is still improving.
+It is likely that validation will fail with false positives because the APITool generated an incomplete or incorrect
+Swagger file. Please report those issue on GitHub. They usually https://github.com/jooby-project/jooby/issues?utf8=%E2%9C%93&q=is%3Aissue+author%3Amarcelstoer+label%3Aapitool+[get fixed within days] or a few weeks.
+
+== Kotlin
+
+- Contrary to Java Kotlin allows to pack more than one top-level class into the same `.kt` file. It is suggested to use
+that feature to group classes that are tightly coupled to each other and thus form a coherent unit. Ideally, the name
+of the main class is the same as the filename - just like in Java. If you opt to put a larger unit into a single file
+this should be reflected in the filename i.e. `FooBar<unit-type>`.
+- It's ok for entities to inherit from data classes. However, since constructors are not inherited it offers no obvious
+benefit over just repeating the same constructor (if useful) as in the data class.
+- Understand that if you use string interpolation in log messages you are not profiting from the lazy evaluation your
+logging framework offers: `logger.debug("Deleted $count children...` is just a nicer
+`logger.debug("Deleted " + count + " children...`.
+
+
+== Jooby
+
+- Use script routes rather than MVC routes: https://jooby.org/doc/#routes[https://jooby.org/doc/#routes]
+- Use the `JoobyRule` JUnit rule in your integration tests for starting/stopping the application: https://jooby.org/doc/#tests-integration-tests[https://jooby.org/doc/#tests-integration-tests]
+
+== jOOQ
+
+- You are likely going to inject a/the `DSLContext` into the persistence classes like repositories. Make sure it is
+named appropriately. Calling it `create` will allow for the very elegant `create.newRecord(FOO)` but also for the very
+odd `create.deleteFrom(FOO)`.
+
