@@ -21,19 +21,27 @@ on the lean stack.
 
 === Project structure, artifacts
 
+.Writing vs. generating classes for API
 * Write the _API resource_ classes manually in Kotlin; as immutable data classes. Generating from the service contract
 with some Swagger/OpenAPI generator means blowing up `build.gradle` - and getting Java rather than Kotlin code.
 Creating Kotlin data classes on the other hand is super quick and the (automatic) contract validation, more on that
-later, ensures correctness of the code. Furthermore, those resources should mostly be POKOs.
-* It's ok to generate other classes from contracts you depend upon.
-* Put them into the `ch.ti8m.channelsuite.<module>.resources` package.
-* Write dedicated entities if necessary and convert between the entities and resources.
-* WARNING be very careful which representation of an object you use on which layer! It's quite likely that you will have
-at least three representations of the same object:
-  - API resource
-  - entity
-  - jOOQ record
- -> returning the jOOQ record inside the route for example is not ok
+later, ensures correctness of the code. Furthermore, those resources should mostly be POKOs. See example in the
+xref:api-resources[Kotlin section].
+* It's ok to generate _other_ classes (i.e. not the API resources) from contracts you depend upon.
+* Put the API resource classes into the `ch.ti8m.channelsuite.<module>.resources` package.
+
+.Resources and entities
+Write dedicated entities if necessary and convert between these entities and resources.
+
+.One type per layer
+Be very careful which representation of an object you use on which layer! It's quite likely that you will have at least
+three representations of the same object:
+* API resource
+* entity
+* jOOQ record
+
+Returning the jOOQ record inside the route for example is not ok. Use resources in the "controllers", entities for
+persistence and jOOQ records inside the repository implementations.
 
 === Contract validation
 
@@ -47,21 +55,89 @@ Swagger file. Please report those issue on GitHub. They usually https://github.c
 
 == Kotlin
 
-- Contrary to Java Kotlin allows to pack more than one top-level class into the same `.kt` file. It is suggested to use
+.Multiple classes per file
+Contrary to Java Kotlin allows to pack more than one top-level class into the same `.kt` file. It is suggested to use
 that feature to group classes that are tightly coupled to each other and thus form a coherent unit. Ideally, the name
-of the main class is the same as the filename - just like in Java. If you opt to put a larger unit into a single file
-this should be reflected in the filename i.e. `FooBar<unit-type>`.
-- It's ok for entities to inherit from data classes. However, since constructors are not inherited it offers no obvious
-benefit over just repeating the same constructor (if useful) as in the data class.
-- Understand that if you use string interpolation in log messages you are not profiting from the lazy evaluation your
+of the main class is the same as the filename - just like in Java. Example: (simplified) `ExchangeRate.kt`
+[source,kotlin]
+----
+data class ExchangeRate(val tiers: List<ExchangeRateTier>) #<1>
+
+data class ExchangeRateTier(val amount: BigDecimal) #<2>
+----
+
+<1> `ExchangeRate` is the main class and, therefore, the file is called `ExchangeRate.kt`
+<2> `ExchangeRateTier` isn't used anywhere without its parent, hence it's in the same file (similar to nested classes in
+Java)
+
+If you opt to put a larger unit into a single file this should be reflected in the filename i.e. `FooBar<unit-type>`. In
+the above example there _is_ no larger unit.
+
+[[api-resources]]
+.API resources
+An example that documents a few points discussed above and more.
+[source,kotlin]
+----
+data class ExchangeRate(@JsonFormat(pattern = rfc3339Pattern) #<1>
+                        val timestamp: ZonedDateTime, #<2>
+                        val type: String,
+                        val unit: BigDecimal,
+                        val tiers: List<ExchangeRateTier>)
+
+data class ExchangeRateTier(val amountTo: BigDecimal,
+                            val bid: BigDecimal,
+                            val mid: BigDecimal,
+                            val ask: BigDecimal)
+----
+
+<1> OpenAPI timestamps are required to be RFC3339 compliant, a format for which Jackson has no constant yet. So, you
+have to define `"yyyy-MM-dd'T'HH:mm:ss[.S]XXX"` somewhere yourself.
+<2> All properties are mandatory in this case and the class is immutable
+
+.Resource->entity inheritance
+It's ok for entities to inherit from data classes. However, since constructors are not inherited it offers no obvious
+benefit over just repeating the same constructor (if useful) as in the data class. Immutability is a desirable trait
+here as well.
+
+.String interpolation / logging
+Understand that if you use string interpolation in log messages you are not profiting from the lazy evaluation your
 logging framework offers: `logger.debug("Deleted $count children...` is just a nicer
 `logger.debug("Deleted " + count + " children...`.
 
 
 == Jooby
 
-- Use script routes rather than MVC routes: https://jooby.org/doc/#routes[https://jooby.org/doc/#routes]
-- Use the `JoobyRule` JUnit rule in your integration tests for starting/stopping the application: https://jooby.org/doc/#tests-integration-tests[https://jooby.org/doc/#tests-integration-tests]
+.Routes
+Use script routes rather than MVC routes: https://jooby.org/doc/#routes[https://jooby.org/doc/#routes]. Use a constant
+for the API version as the first URL segment (→ https://channelsuite.ti8m.ch/docu/modules/service-contracts/latest/#versioning[guidelines])
+[source,kotlin]
+----
+class StateRoutes : Kooby({ #<1>
+    path(apiVersion) {
+        path("/state") {
+            path("/topics") {
+                get {
+                    getProcessingInfoForTopicOrAll(null)
+                }
+
+                path("/:topicName") {
+                    get {
+                        val topicName = param<String>("topicName")
+                        val topicStates = getProcessingInfoForTopicOrAll(topicName)
+                        if (topicStates.isEmpty()) throw Err(Status.NOT_FOUND) else topicStates
+                    }
+
+                    post { req, resp ->
+                        val topicName = req.param<String>("topicName")
+                        val startParam = req.param("start").toOptional()
+                        val stopParam = req.param("stop").toOptional()
+----
+
+<1> It's quite likely you will organize your routes by "topic" or resources (e.g. one file for `Person`, one for
+`Offer`, etc.)
+
+.Integration tests
+Use the `JoobyRule` JUnit rule in your integration tests for starting/stopping the application: https://jooby.org/doc/#tests-integration-tests[https://jooby.org/doc/#tests-integration-tests]
 
 == jOOQ
 
